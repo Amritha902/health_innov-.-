@@ -18,7 +18,23 @@ ROOT = Path(__file__).resolve().parents[2]
 CONSENT_VERSION = "1.0"
 PURPOSES = {"core": True, "clinician_review": False, "wearables": False, "research": False}
 SHARE_HOURS = 72
-MAX_UPLOAD = 300 * 1024 * 1024
+MAX_UPLOAD = 200 * 1024 * 1024          # Apple Health exports can be large; anything bigger is refused while streaming
+PATIENT_IDLE_DAYS = 180                  # a device link stops working after 6 months unused (recovery code still works)
+UAE_HOSTED = os.environ.get("RIAYA_UAE_HOSTED", "").lower() == "true"
+
+
+async def read_limited(file, limit):
+    """Reads an upload in chunks and stops as soon as it passes the limit, so oversized files never fill memory."""
+    chunks, size = [], 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > limit:
+            raise HTTPException(413, f"File too large (limit {limit // (1024 * 1024)} MB)")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 def startup():
     db.init()
@@ -95,6 +111,11 @@ async def headers(request, call_next):
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; "
+        "connect-src 'self' https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co https://tessdata.projectnaptha.com; "
+        "worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
     if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
         resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp
@@ -104,10 +125,18 @@ async def headers(request, call_next):
 def current_user(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing token")
+    now = time.time()
     with db.tx() as c:
-        row = c.execute("SELECT id FROM users WHERE token_hash=?", (security.token_hash(authorization[7:]),)).fetchone()
+        row = c.execute("SELECT id, created_at, last_active FROM users WHERE token_hash=?", (security.token_hash(authorization[7:]),)).fetchone()
+        if row:
+            last = row["last_active"] or row["created_at"]
+            if now - last > PATIENT_IDLE_DAYS * 86400:
+                c.execute("UPDATE users SET token_hash=? WHERE id=?", ("expired:" + security.new_token(), row["id"]))
+                row = None
+            elif now - last > 3600:
+                c.execute("UPDATE users SET last_active=? WHERE id=?", (now, row["id"]))
     if not row:
-        raise HTTPException(401, "Unknown token")
+        raise HTTPException(401, "This device link has expired or is unknown. Use your recovery code to restore your checks.")
     return row["id"]
 
 
@@ -258,9 +287,7 @@ async def upload_wearables(aid: str, file: UploadFile = File(...), user=Depends(
     row = own_assessment(aid, user)
     if not consents(user)["wearables"]:
         raise HTTPException(403, "Device-data consent not given")
-    raw = await file.read()
-    if len(raw) > MAX_UPLOAD:
-        raise HTTPException(413, "File too large")
+    raw = await read_limited(file, MAX_UPLOAD)
     try:
         summary = wearables.detect_and_parse(file.filename or "", raw)
     except (ValueError, StopIteration, KeyError) as e:
@@ -883,9 +910,7 @@ async def read_lab_report(aid: str, file: Optional[UploadFile] = File(None), tex
     from . import labreport
     own_assessment(aid, user)
     if file is not None:
-        raw = await file.read()
-        if len(raw) > 5 * 1024 * 1024:
-            raise HTTPException(413, "File too large")
+        raw = await read_limited(file, 5 * 1024 * 1024)
         if raw[:5] == b"%PDF-":
             try:
                 text = labreport.pdf_text(raw)
@@ -998,10 +1023,8 @@ AUDIO_TYPES = ("audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav"
 
 
 async def _store_note(c, aid, sender, file, seconds):
-    raw = await file.read()
+    raw = await read_limited(file, MAX_NOTE)
     mime = (file.content_type or "").split(";")[0]
-    if len(raw) > MAX_NOTE:
-        raise HTTPException(413, "Voice note too long")
     if mime not in AUDIO_TYPES:
         raise HTTPException(415, "Unsupported audio type")
     c.execute("INSERT INTO messages (id, assessment_id, sender, body, ts, audio, mime, seconds) VALUES (?,?,?,?,?,?,?,?)",
@@ -1091,13 +1114,15 @@ def clin_send(aid: str, body: MessageIn, clin=Depends(current_clinician)):
     return {"ok": True}
 
 
-VIDEO_BASE = os.environ.get("RIAYA_VIDEO_BASE", "https://meet.jit.si")
+VIDEO_BASE = os.environ.get("RIAYA_VIDEO_BASE", "")  # must be a self-hosted service approved for health data; no public default
 
 
 @app.post("/api/clinician/cases/{aid}/video")
 def start_video(aid: str, clin=Depends(current_clinician)):
     """Creates an unguessable video room. For production, point RIAYA_VIDEO_BASE at a self-hosted Jitsi inside the UAE."""
-    url = f"{VIDEO_BASE}/riaya-{security.new_token()[:24]}"
+    if not VIDEO_BASE:
+        raise HTTPException(503, "Video consultations are switched off until an approved, UAE-hosted video service is configured. Use messages or voice notes.")
+    url = f"{VIDEO_BASE.rstrip('/')}/riaya-{security.new_token()[:24]}"
     with db.tx() as c:
         if not _clinician_can_see(c, aid):
             raise HTTPException(404, "Not found")
@@ -1289,10 +1314,18 @@ async def whatsapp(request: Request):
     return Response(xml, media_type="application/xml")
 
 
+@app.get("/api/health")
+def health():
+    with db.tx() as c:
+        c.execute("SELECT 1").fetchone()
+    return {"ok": True}
+
+
 @app.get("/api/config")
 def public_config():
     """Non-secret settings the web app needs (e.g. the WhatsApp number to show as a QR code)."""
-    return {"whatsapp_number": os.environ.get("RIAYA_WHATSAPP_NUMBER", ""), "whatsapp_join": os.environ.get("RIAYA_WHATSAPP_JOIN", "")}
+    return {"whatsapp_number": os.environ.get("RIAYA_WHATSAPP_NUMBER", ""), "whatsapp_join": os.environ.get("RIAYA_WHATSAPP_JOIN", ""),
+            "video_enabled": bool(VIDEO_BASE), "uae_hosted": UAE_HOSTED}
 
 
 class DemoIn(BaseModel):

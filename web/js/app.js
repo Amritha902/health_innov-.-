@@ -14,6 +14,8 @@ async function boot() {
   S.aid = store.get("aid");
   try { S.answers = JSON.parse(store.get("draft") || "{}"); } catch { S.answers = {}; }
   S.schema = await API.get("/api/questionnaire");
+  try { S.config = await API.get("/api/config"); } catch { S.config = {}; }
+  demoBanner();
   renderTop();
   if (location.hash === "#more" && API.token && S.aid) { history.replaceState(null, "", "index.html"); store.del("done"); return devices(); }
   if (API.token && S.aid && store.get("done") === "1") return showResult();
@@ -30,9 +32,16 @@ function renderTop() {
   if ($("#jBtn")) $("#jBtn").onclick = () => renderJourney();
   if ($("#pvBtn")) $("#pvBtn").onclick = () => renderPrivacy();
   $("#bigBtn").onclick = () => { document.documentElement.classList.toggle("big"); store.set("big", document.documentElement.classList.contains("big") ? "1" : ""); };
-  $("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); applyLang(); renderTop(); rerender(); };
+  $("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); applyLang(); demoBanner(); renderTop(); rerender(); };
 }
 let rerender = welcome;
+
+function demoBanner() {
+  if (S.config && S.config.uae_hosted) return;
+  let b = document.getElementById("demoBar");
+  if (!b) { b = document.createElement("div"); b.id = "demoBar"; b.className = "demo-bar"; b.setAttribute("role", "note"); document.body.prepend(b); }
+  b.textContent = LANG === "ar" ? "خادم تجريبي: لا تُدخل معلومات صحية حقيقية." : "Demonstration server: please don't enter real health information.";
+}
 
 const LATTICE = `<svg class="lattice" viewBox="0 0 240 252" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs><pattern id="mash" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -122,7 +131,7 @@ function consent() {
   const item = (id, title, sub, checked, req) => `<label class="check"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} ${req ? "required" : ""}><div><b>${title}</b><div class="muted">${sub}</div></div></label>`;
   view().innerHTML = `<h1>${t("consentTitle")}</h1>
     <div class="grid2">
-      <div class="card"><h2>${t("weStore")}</h2><ul>${t("weStoreList").map(x => `<li>${x}</li>`).join("")}</ul></div>
+      <div class="card"><h2>${t("weStore")}</h2><ul>${t("weStoreList").map(x => `<li>${x}</li>`).join("")}<li>${S.config && S.config.uae_hosted ? (LANG === "ar" ? "محفوظة على خوادم داخل الدولة." : "Kept on servers in the UAE.") : (LANG === "ar" ? "هذا خادم تجريبي خارج الدولة؛ لا تُدخل بيانات حقيقية." : "This is a demonstration server outside the UAE; don't enter real data.")}</li></ul></div>
       <div class="card"><h2>${t("weNever")}</h2><ul>${t("weNeverList").map(x => `<li>${x}</li>`).join("")}</ul></div>
     </div>
     ${item("cCore", t("cCore"), t("cCoreSub"), true, true)}

@@ -186,8 +186,14 @@ def test_labs_genomic_rapid_handover(client):
     assert "do not repeat" in text and "no phone calls or SMS" in text and "male doctor" in text
     # messaging + video
     client.post(f"/api/clinician/cases/{aid}/messages", headers=ch, json={"body": "Hello, I have reviewed your results."})
-    url = client.post(f"/api/clinician/cases/{aid}/video", headers=ch).json()["url"]
-    assert url.startswith("https://meet.jit.si/riaya-")
+    assert client.post(f"/api/clinician/cases/{aid}/video", headers=ch).status_code == 503  # off until an approved service is configured
+    import app.main as m
+    m.VIDEO_BASE = "https://video.riaya-pilot.ae"
+    try:
+        url = client.post(f"/api/clinician/cases/{aid}/video", headers=ch).json()["url"]
+    finally:
+        m.VIDEO_BASE = ""
+    assert url.startswith("https://video.riaya-pilot.ae/riaya-")
     msgs = client.get(f"/api/assessments/{aid}/messages", headers=h).json()
     assert msgs[0]["body"].startswith("Hello") and len(msgs) == 2
     client.post(f"/api/assessments/{aid}/messages", headers=h, json={"body": "Thank you"})
@@ -499,3 +505,38 @@ def test_recovery_code_and_consent_withdrawal(client):
     from app import db
     with db.tx() as c:
         c.execute("DELETE FROM login_attempts")
+
+
+
+def test_upload_limits_and_patient_expiry(client):
+    import app.main as m
+    h, aid = user(client)
+    old = m.MAX_UPLOAD
+    m.MAX_UPLOAD = 1024 * 1024
+    try:
+        big = b"date,sleep_hours\n" + b"2026-10-01,7\n" * 200000
+        assert client.post(f"/api/assessments/{aid}/wearables", headers=h, files={"file": ("d.csv", big)}).status_code == 413
+    finally:
+        m.MAX_UPLOAD = old
+    # zip bomb: tiny archive that expands enormously
+    import io, zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("apple_health_export/export.xml", b"<HealthData>" + b" " * 30_000_000 + b"</HealthData>")
+    r = client.post(f"/api/assessments/{aid}/wearables", headers=h, files={"file": ("export.zip", buf.getvalue())})
+    assert r.status_code == 422 and "compressed" in r.json()["detail"]
+    # a device link unused for 6 months stops working
+    from app import db
+    with db.tx() as c:
+        c.execute("UPDATE users SET last_active=?, created_at=? WHERE id=(SELECT user_id FROM assessments WHERE id=?)", (1.0, 1.0, aid))
+    r = client.get(f"/api/assessments/{aid}/result", headers=h)
+    assert r.status_code == 401 and "recovery code" in r.json()["detail"]
+    cfg = client.get("/api/config").json()
+    assert cfg["video_enabled"] is False and cfg["uae_hosted"] is False
+    assert "default-src 'self'" in client.get("/").headers["content-security-policy"]
+
+
+def test_health_and_config(client):
+    assert client.get("/api/health").json() == {"ok": True}
+    cfg = client.get("/api/config").json()
+    assert cfg["uae_hosted"] is False and cfg["video_enabled"] is False

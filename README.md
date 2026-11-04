@@ -94,5 +94,6 @@ Open http://localhost:8000. To enable the local-only demo clinician account, set
 - [docs/CULTURAL_DESIGN.md](docs/CULTURAL_DESIGN.md): each cultural and religious barrier, and how the product handles it
 - [docs/SYSTEM_LAYERS.md](docs/SYSTEM_LAYERS.md): the gaps Abu Dhabi has named, mapped to working features
 - [docs/PRIVACY_AND_REGULATION.md](docs/PRIVACY_AND_REGULATION.md): UAE rules and the controls in the code
+- [docs/OPERATIONS.md](docs/OPERATIONS.md): hosting, configuration, backup and restore, retention
 - [docs/IFHAS_AND_ROADMAP.md](docs/IFHAS_AND_ROADMAP.md): integration, referral levels, pilot roadmap
 - `demo/`: the scripts that record and assemble the demo video from the live app (narration by Kokoro, an open-source voice model)

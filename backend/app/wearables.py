@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from xml.etree.ElementTree import iterparse
 
 WINDOW_DAYS = 30
+MAX_XML = 2 * 1024 ** 3  # uncompressed export.xml limit
 NIGHT_START, NIGHT_END = 21, 6
 GLUCOSE_HIGH = 140  # mg/dL
 
@@ -59,6 +60,9 @@ def parse_apple_health(fileobj, filename=""):
         fileobj.seek(0)
         z = zipfile.ZipFile(fileobj)
         name = next(n for n in z.namelist() if n.endswith("export.xml") and "cda" not in n)
+        info = z.getinfo(name)
+        if info.file_size > MAX_XML or (info.compress_size and info.file_size / info.compress_size > 200):
+            raise ValueError("This archive is too large or unusually compressed to read safely")
         stream = z.open(name)
     else:
         fileobj.seek(0)

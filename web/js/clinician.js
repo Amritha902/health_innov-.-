@@ -1,3 +1,5 @@
+let CFG = {};
+fetch("/api/config").then(r => r.json()).then(c => { CFG = c; }).catch(() => {});
 const LEVELS = ["self_care", "primary_care", "fertility_services", "andrology", "same_day_primary", "urgent_specialist", "emergency"];
 const LEVEL_NAME = { self_care: "Self-care plan", primary_care: "Primary care / IFHAS", fertility_services: "Fertility services (couple)", andrology: "Andrology / urology", same_day_primary: "Same-day primary care", urgent_specialist: "Urgent urology", emergency: "Emergency" };
 const lvl = l => `<span class="pill lvl-${l}">${LEVEL_NAME[l] || l}</span>`;
@@ -134,7 +136,7 @@ async function openCase(id) {
         <div class="row">${[["booked", "Booked"], ["attended", "Attended"], ["tests_done", "Tests done"], ["followed_up", "Followed up"]].map(([s, l]) => `<button class="chip" data-s="${s}">${l}</button>`).join("")}</div></div>` : ""}
       <div class="card tight"><b>Messages</b><div id="thread" class="small"></div>
         <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="cmsg" placeholder="Message (encrypted)"><button class="btn" id="csend">Send</button></div>
-        <div class="row" style="margin-top:8px"><button class="chip" id="cnote">Record voice reply</button><button class="chip" id="video">${ref && ref.video_url ? "Video room ready" : "Start video consult"}</button></div>
+        <div class="row" style="margin-top:8px"><button class="chip" id="cnote">Record voice reply</button>${CFG.video_enabled ? `<button class="chip" id="video">${ref && ref.video_url ? "Video room ready" : "Start video consult"}</button>` : ""}</div>
         ${ref && ref.video_url ? `<p class="small"><a href="${esc(ref.video_url)}" target="_blank" rel="noopener noreferrer">Join video room</a></p>` : ""}</div>
       <div class="card tight"><b>Handover</b><p class="small muted">Referral letter and FHIR bundle for the receiving clinic or IFHAS visit.</p>
         <div class="row"><button class="chip" id="hoView">View letter</button><button class="chip" id="hoDl">Download FHIR</button></div><div id="letter"></div></div>
@@ -154,7 +156,7 @@ async function openCase(id) {
   $("#csend").onclick = async () => { const v = $("#cmsg").value.trim(); if (!v) return; await API.post(`/api/clinician/cases/${id}/messages`, { body: v }); $("#cmsg").value = ""; thread(await API.get(`/api/clinician/cases/${id}/messages`)); };
   Notes.attach($("#cnote"), `/api/clinician/cases/${id}/voice-notes`, async () => thread(await API.get(`/api/clinician/cases/${id}/messages`)),
     { record: "Record voice reply", stop: "Send", denied: "Microphone blocked", unsupported: "Not supported" });
-  $("#video").onclick = async () => { await API.post(`/api/clinician/cases/${id}/video`); openCase(id); };
+  if ($("#video")) $("#video").onclick = async () => { await API.post(`/api/clinician/cases/${id}/video`); openCase(id); };
   const ho = () => API.get(`/api/clinician/cases/${id}/handover`);
   $("#hoView").onclick = async () => { const h = await ho();
     $("#letter").innerHTML = `<div class="small" style="margin-top:10px"><b>To:</b> ${esc(h.letter.to)}, ${h.letter.date}${h.letter.sections.map(s => `<p style="margin:10px 0 2px"><b>${esc(s.title)}</b></p><ul>${s.lines.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`).join("")}</div>`; };

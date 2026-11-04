@@ -18,11 +18,11 @@ Confirm with legal counsel before the pilot. This is the team's reading, not leg
 | User-controlled sharing | Clinicians see a case only if the man consented to review, or if he gave them an 8-character one-time code. The code expires after 72 h and he can revoke it; revoking removes access immediately (tested). |
 | Right to erase / export | `DELETE /api/me` erases all rows (SQLite `secure_delete` overwrites them) and unlinks event counters. `GET /api/me/export` returns everything held about him. |
 | Access control and audit | Clinician passwords use PBKDF2-SHA256 (310k iterations), sessions last 8 h, and every login, queue view, case view, review and status change is logged with time and actor. |
-| Messages and partner view | Patient–clinician messages are encrypted at rest and erased with his data. The partner link shows status only, expires in 30 days, can be revoked, and keeps its token in the URL fragment (not sent to servers or in Referer headers). Video rooms use unguessable names; production should use a self-hosted Jitsi in the UAE. |
+| Messages and partner view | Patient–clinician messages are encrypted at rest and erased with his data. The partner link shows status only, expires in 30 days, can be revoked, and keeps its token in the URL fragment (not sent to servers or in Referer headers). Video is switched off unless `RIAYA_VIDEO_BASE` points to a self-hosted service approved for health data; there is no public default. |
 | No trail at home | No push notifications, SMS or email. Quick exit. Pages send `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`. |
 | Human oversight | Any referral at fertility-services level or above, any high signal tier and any red flag is held as `pending_review` until a clinician approves or changes it. Time-critical red flags show immediate instructions to the man first. |
 
 ## For production
-- Hosting in UAE (UAE-region cloud approved under ADHICS, or on-premise at the partner facility). Postgres with column encryption and KMS-managed keys.
+- Hosting in UAE (UAE-region cloud approved under ADHICS, or on-premise at the partner facility). The public demo is not UAE-hosted and says so on every page; `RIAYA_UAE_HOSTED=true` is set only on a UAE deployment. See OPERATIONS.md. Postgres with column encryption and KMS-managed keys.
 - SSO for clinicians (UAE PASS / facility IdP), role-based access, and periodic access review.
 - DPIA, penetration test, ADHICS certification through the hosting partner.

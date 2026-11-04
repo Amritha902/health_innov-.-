@@ -220,3 +220,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .opt:focus-visible, .chip:focus-visible, .path:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .skip-link { position: absolute; inset-inline-start: 8px; top: -60px; background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; z-index: 100; }
 .skip-link:focus { top: 8px; }
+
+.demo-bar{background:#f6e7c8;color:#4a3410;font-size:13px;text-align:center;padding:6px 16px;border-bottom:1px solid #e2c98f}
+@media (prefers-color-scheme:dark){.demo-bar{background:#3a2e17;color:#f3e3c0;border-color:#5c4823}}

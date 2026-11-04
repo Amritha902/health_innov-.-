@@ -6,7 +6,7 @@ services:
     branch: claude/epic-goodall-arivj6
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/graph
+    healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.1
