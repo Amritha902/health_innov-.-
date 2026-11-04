@@ -23,11 +23,12 @@ async function boot() {
 function renderTop() {
   $("#top").innerHTML = `<div class="brand"><i></i>${t("app")}</div>
     <div class="spacer"></div>
-    ${API.token ? `<button class="chip" id="jBtn">${t("jOpen")}</button>` : ""}
+    ${API.token ? `<button class="chip" id="jBtn">${t("jOpen")}</button><button class="chip" id="pvBtn">${pv("privacyChip")}</button>` : ""}
     <button class="chip" id="bigBtn" aria-pressed="${document.documentElement.classList.contains("big")}">${t("bigger")}</button>
     <a class="chip" href="graph.html">${LANG === "ar" ? "خريطة الأدلة" : "Evidence map"}</a>
     <button class="chip" id="langBtn">${t("lang")}</button>`;
   if ($("#jBtn")) $("#jBtn").onclick = () => renderJourney();
+  if ($("#pvBtn")) $("#pvBtn").onclick = () => renderPrivacy();
   $("#bigBtn").onclick = () => { document.documentElement.classList.toggle("big"); store.set("big", document.documentElement.classList.contains("big") ? "1" : ""); };
   $("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); applyLang(); renderTop(); rerender(); };
 }
@@ -65,9 +66,11 @@ function welcome() {
     <div class="steps">
       ${[1, 2, 3].map(i => `<div><span class="n">${LANG === "ar" ? "٠١٢٣"[i] : i}</span><b>${t("how" + i + "t")}</b><span class="muted">${t("how" + i)}</span></div>`).join("")}
     </div>
+    ${API.token ? "" : `<p class="small" style="margin-top:32px"><a href="#" id="restoreLink">${pv("restoreLink")}</a></p>`}
     <p class="muted small" style="margin-top:48px">${t("alsoTry")}: <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a>, <a href="fabric.html">${t("fabricLink")}</a>, <a href="graph.html">${t("graphLink")}</a>, <a href="clinician.html">${LANG === "ar" ? "بوابة الأطباء" : "clinician console"}</a></p>`;
   $("#go").onclick = () => { document.body.classList.remove("landing"); resumable ? intake() : consent(); };
   $("#watch").onclick = () => { document.body.classList.remove("landing"); passiveStart(); };
+  if ($("#restoreLink")) $("#restoreLink").onclick = e => { e.preventDefault(); document.body.classList.remove("landing"); renderRestore(); };
   if ($("#fresh")) $("#fresh").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; document.body.classList.remove("landing"); consent(); };
   API.get("/api/graph").then(g => {
     $("#proof").innerHTML = t("proof")({ edges: g.edges.length, nodes: g.nodes.length, refs: Object.keys(g.references).length });
@@ -500,5 +503,81 @@ async function renderJourney() {
   if ($("#follow")) $("#follow").onclick = async () => {
     S.aid = (await API.post("/api/assessments?channel=web")).id; store.set("aid", S.aid); store.del("done");
     S.section = 0; intake();
+  };
+}
+
+
+const PV = {
+  en: { title: "Privacy & sharing", sub: "Change what Riaya may do with your information at any time. Changes take effect immediately.",
+    review: "A licensed doctor may review my summary when it needs a doctor", reviewOff: "Turning this off removes your checks from every doctor's view, including pending reviews and share codes.",
+    devices: "I may add data from my watch, phone or glucose sensor", research: "My anonymous results may help improve this service", save: "Save changes", saved: "Saved.",
+    rcTitle: "Recovery code", rcSub: "If you change or lose your phone, this code brings your checks back. No name or number is needed. Write it down; it is shown only once, and it works once.",
+    rcMake: "Create a recovery code", rcNew: "Your recovery code", rcKeep: "Write this down and keep it somewhere private. A new code replaces the old one.",
+    exportT: "Download my data", exportS: "Everything Riaya holds about you, in one file.", exportB: "Download",
+    restoreT: "Restore my checks", restoreS: "Enter the recovery code you wrote down. Your old phone will be signed out.", restoreB: "Restore", restored: "Restored. Welcome back.",
+    restoreLink: "Have a recovery code? Restore your checks", privacyChip: "Privacy" },
+  ar: { title: "الخصوصية والمشاركة", sub: "غيّر ما يُسمح لرعاية بفعله بمعلوماتك في أي وقت. تُطبّق التغييرات فوراً.",
+    review: "يمكن لطبيب مرخّص مراجعة ملخصي عندما يحتاج إلى طبيب", reviewOff: "إيقاف هذا يزيل فحوصاتك من عرض جميع الأطباء، بما في ذلك المراجعات المعلقة ورموز المشاركة.",
+    devices: "يمكنني إضافة بيانات ساعتي أو هاتفي أو جهاز السكر", research: "يمكن لنتائجي مجهولة الهوية أن تساعد في تحسين الخدمة", save: "حفظ التغييرات", saved: "تم الحفظ.",
+    rcTitle: "رمز الاسترداد", rcSub: "إذا غيّرت هاتفك أو فقدته، يعيد هذا الرمز فحوصاتك. لا حاجة لاسم أو رقم. اكتبه؛ يظهر مرة واحدة فقط ويعمل مرة واحدة.",
+    rcMake: "أنشئ رمز استرداد", rcNew: "رمز الاسترداد الخاص بك", rcKeep: "اكتبه واحفظه في مكان خاص. الرمز الجديد يحل محل القديم.",
+    exportT: "تحميل بياناتي", exportS: "كل ما تحتفظ به رعاية عنك في ملف واحد.", exportB: "تحميل",
+    restoreT: "استعادة فحوصاتي", restoreS: "أدخل رمز الاسترداد الذي كتبته. سيتم تسجيل خروج هاتفك القديم.", restoreB: "استعادة", restored: "تمت الاستعادة. أهلاً بعودتك.",
+    restoreLink: "لديك رمز استرداد؟ استعد فحوصاتك", privacyChip: "الخصوصية" },
+};
+const pv = k => PV[LANG][k];
+
+async function renderPrivacy() {
+  rerender = renderPrivacy;
+  setWide(false);
+  const c = await API.get("/api/consent");
+  const box = (id, text, on) => `<label class="check"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><div>${text}</div></label>`;
+  view().innerHTML = `<h1>${pv("title")}</h1><p class="lead">${pv("sub")}</p>
+    <div class="card">${box("pvReview", pv("review"), c.clinician_review)}<p class="muted small" id="pvWarn" style="display:none">${pv("reviewOff")}</p>
+      ${box("pvDev", pv("devices"), c.wearables)}${box("pvRes", pv("research"), c.research)}
+      <p class="row"><button class="btn" id="pvSave">${pv("save")}</button><span class="small" id="pvMsg"></span></p></div>
+    <div class="card"><h2>${pv("rcTitle")}</h2><p class="muted small">${pv("rcSub")}</p><div id="rc"><button class="btn ghost" id="rcMake">${pv("rcMake")}</button></div></div>
+    <div class="card"><h2>${pv("exportT")}</h2><p class="muted small">${pv("exportS")}</p><button class="btn ghost" id="pvExport">${pv("exportB")}</button></div>
+    <div class="card"><h3>${t("delTitle")}</h3><p class="muted small">${t("delSub")}</p><button class="btn danger" id="pvDel">${t("delBtn")}</button></div>`;
+  $("#pvReview").onchange = e => $("#pvWarn").style.display = e.target.checked ? "none" : "block";
+  $("#pvSave").onclick = async () => {
+    try {
+      S.consent = await API.post("/api/consent", { core: true, clinician_review: $("#pvReview").checked, wearables: $("#pvDev").checked, research: $("#pvRes").checked });
+      $("#pvMsg").textContent = pv("saved");
+    } catch (e) { $("#pvMsg").textContent = e.message; }
+  };
+  $("#rcMake").onclick = async () => {
+    const r = await API.post("/api/me/recovery");
+    $("#rc").innerHTML = `<p class="small">${pv("rcNew")}</p><div class="code" dir="ltr" style="font-size:22px;letter-spacing:2px">${esc(r.code)}</div><p class="muted small">${pv("rcKeep")}</p>`;
+  };
+  $("#pvExport").onclick = async () => {
+    const data = await API.get("/api/me/export");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+    a.download = "riaya-my-data.json"; a.click();
+  };
+  $("#pvDel").onclick = async () => {
+    if (!confirm(t("delConfirm"))) return;
+    await API.del("/api/me");
+    ["token", "aid", "draft", "done", "passive_aid"].forEach(store.del);
+    API.token = null; S.answers = {}; S.aid = null; renderTop();
+    view().innerHTML = `<div class="card"><h2>${t("deleted")}</h2><button class="btn" onclick="welcome()">${t("start")}</button></div>`;
+  };
+}
+
+function renderRestore() {
+  rerender = renderRestore;
+  setWide(false);
+  view().innerHTML = `<h1>${pv("restoreT")}</h1><p class="lead">${pv("restoreS")}</p>
+    <div class="card"><input type="text" id="rcIn" dir="ltr" autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" style="font-size:20px;letter-spacing:2px">
+    <p class="row"><button class="btn" id="rcGo">${pv("restoreB")}</button><span class="small" id="rcMsg"></span></p></div>`;
+  $("#rcGo").onclick = async () => {
+    try {
+      const r = await API.post("/api/recover", { code: $("#rcIn").value });
+      API.token = r.token; store.set("token", r.token);
+      if (r.aid) { S.aid = r.aid; store.set("aid", r.aid); store.set("done", "1"); }
+      renderTop(); $("#rcMsg").textContent = pv("restored");
+      setTimeout(() => renderJourney(), 600);
+    } catch (e) { $("#rcMsg").textContent = e.message; }
   };
 }

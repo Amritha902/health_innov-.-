@@ -81,3 +81,16 @@ def password_problem(pw, username=""):
     if len(set(pw)) < 6:
         return "Use a more varied password"
     return None
+
+
+RC_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def recovery_code():
+    """20 characters from a 31-symbol alphabet (~99 bits), grouped for writing down: XXXXX-XXXXX-XXXXX-XXXXX."""
+    raw = "".join(secrets.choice(RC_ALPHABET) for _ in range(20))
+    return "-".join(raw[i:i + 5] for i in range(0, 20, 5))
+
+
+def normalise_code(code):
+    return "".join(ch for ch in (code or "").upper() if ch in RC_ALPHABET)

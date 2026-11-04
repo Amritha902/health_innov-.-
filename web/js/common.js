@@ -122,3 +122,32 @@ const Notes = {
   },
   wire(container) { $$(".notebtn", container).forEach(b => b.onclick = () => Notes.play(b.dataset.src, b)); },
 };
+
+/* Accessibility: every option chip behaves like a real toggle button for keyboard and screen-reader users,
+   and every unlabeled input borrows the visible question text as its accessible name. Applied to anything
+   rendered now or later. */
+(function a11y() {
+  const upgrade = root => {
+    root.querySelectorAll(".opt:not([data-a11y])").forEach(el => {
+      el.dataset.a11y = "1";
+      el.setAttribute("role", "button");
+      el.tabIndex = 0;
+      el.setAttribute("aria-pressed", el.classList.contains("on") ? "true" : "false");
+      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); } });
+    });
+    root.querySelectorAll(".opt[data-a11y]").forEach(el => el.setAttribute("aria-pressed", el.classList.contains("on") ? "true" : "false"));
+    root.querySelectorAll("input:not([aria-label]):not([type=hidden]), select:not([aria-label]), textarea:not([aria-label])").forEach(el => {
+      if (el.id && document.querySelector(`label[for="${el.id}"]`)) return;
+      let prev = el.previousElementSibling;
+      while (prev && !(prev.matches && prev.matches("label.q, label, h3"))) prev = prev.previousElementSibling;
+      const name = (prev && prev.textContent.trim()) || el.placeholder;
+      if (name) el.setAttribute("aria-label", name);
+    });
+  };
+  const start = () => {
+    upgrade(document);
+    new MutationObserver(muts => { for (const m of muts) if (m.addedNodes.length || m.type === "attributes") { upgrade(document); break; } })
+      .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  };
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", start) : start();
+})();

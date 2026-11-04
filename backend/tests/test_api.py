@@ -476,3 +476,26 @@ def test_readable_validation_errors(client):
     assert "at most 500" in r.json()["detail"]
     r = client.post(f"/api/assessments/{aid}/labs", headers=h, json={"hba1c": "abc"})
     assert "must be a number" in r.json()["detail"]
+
+
+def test_recovery_code_and_consent_withdrawal(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "aas": "current"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    code = client.post("/api/me/recovery", headers=h).json()["code"]
+    assert len(code) == 23 and code.count("-") == 3
+    # typed on a new phone, lower case, without dashes
+    r = client.post("/api/recover", json={"code": code.replace("-", "").lower()}).json()
+    h2 = {"Authorization": f"Bearer {r['token']}"}
+    assert r["aid"] == aid and client.get(f"/api/assessments/{aid}/result", headers=h2).status_code == 200
+    assert client.get(f"/api/assessments/{aid}/result", headers=h).status_code == 401   # lost phone no longer works
+    assert client.post("/api/recover", json={"code": code}).status_code == 404           # one use only
+    # withdrawing doctor review removes the case from the queue and from doctors
+    ch = clinician(client)
+    assert client.get(f"/api/clinician/cases/{aid}", headers=ch).status_code == 200
+    client.post("/api/consent", headers=h2, json={"core": True, "clinician_review": False})
+    assert client.get(f"/api/clinician/cases/{aid}", headers=ch).status_code == 404
+    assert aid not in [x["id"] for x in client.get("/api/clinician/queue", headers=ch).json()["pending"]]
+    from app import db
+    with db.tx() as c:
+        c.execute("DELETE FROM login_attempts")

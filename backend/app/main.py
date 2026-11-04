@@ -187,7 +187,7 @@ def new_session(body: SessionIn):
     """No name, phone, email or Emirates ID. The token lives only on the man's device."""
     token, uid = security.new_token(), str(uuid.uuid4())
     with db.tx() as c:
-        c.execute("INSERT INTO users VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), body.lang))
+        c.execute("INSERT INTO users (id, token_hash, created_at, lang) VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), body.lang))
     return {"token": token}
 
 
@@ -201,10 +201,19 @@ class ConsentIn(BaseModel):
 @app.post("/api/consent")
 def set_consent(body: ConsentIn, user=Depends(current_user)):
     if not body.core:
-        raise HTTPException(400, "Core consent is needed to produce a summary")
+        raise HTTPException(400, "Core consent is needed to produce a summary. To stop completely, delete your data instead.")
+    before = consents(user)
     with db.tx() as c:
         for p, v in body.model_dump().items():
             c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (user, p, int(v), CONSENT_VERSION, time.time()))
+        if before["clinician_review"] and not body.clinician_review:
+            # withdrawal: doctors lose access to every check, and pending reviews leave the queue
+            c.execute("UPDATE assessments SET review_consent=0 WHERE user_id=?", (user,))
+            c.execute("""UPDATE referrals SET status='suggested' WHERE status='pending_review'
+                         AND assessment_id IN (SELECT id FROM assessments WHERE user_id=?)""", (user,))
+            c.execute("UPDATE shares SET revoked=1 WHERE assessment_id IN (SELECT id FROM assessments WHERE user_id=?)", (user,))
+    if before["clinician_review"] and not body.clinician_review:
+        db.audit("user", "withdrew_clinician_review")
     return consents(user)
 
 
@@ -410,6 +419,50 @@ def feedback(aid: str, body: FeedbackIn, user=Depends(current_user)):
     with db.tx() as c:
         c.execute("INSERT OR REPLACE INTO feedback VALUES (?,?,?,?,?)", (aid, body.trust, body.clarity, body.comfort, time.time()))
     return {"ok": True}
+
+
+@app.post("/api/me/recovery")
+def make_recovery(user=Depends(current_user)):
+    """A code he can write down to restore his checks on a new phone. Shown once; only a hash is stored. A new code replaces the old one."""
+    code = security.recovery_code()
+    with db.tx() as c:
+        c.execute("UPDATE users SET recovery_hash=? WHERE id=?", (security.token_hash(security.normalise_code(code)), user))
+    db.audit("user", "recovery_code_created")
+    return {"code": code}
+
+
+class RecoverIn(BaseModel):
+    code: str = Field(min_length=10, max_length=40)
+
+
+@app.post("/api/recover")
+def recover(body: RecoverIn, request: Request):
+    """Restores access on a new device. The old device's link stops working, in case the phone was lost."""
+    now, ip = time.time(), (request.client.host if request.client else "?")
+    norm = security.normalise_code(body.code)
+    outcome, token = None, None
+    with db.tx() as c:
+        fails = c.execute("SELECT COUNT(*) FROM login_attempts WHERE username='recovery' AND ip=? AND ts>?", (ip, now - LOCK_WINDOW)).fetchone()[0]
+        if fails >= MAX_FAILS:
+            outcome = "locked"
+        else:
+            row = c.execute("SELECT id FROM users WHERE recovery_hash=?", (security.token_hash(norm),)).fetchone() if len(norm) == 20 else None
+            if row:
+                token = security.new_token()
+                c.execute("UPDATE users SET token_hash=?, recovery_hash=NULL WHERE id=?", (security.token_hash(token), row["id"]))
+                outcome = "ok"
+            else:
+                c.execute("INSERT INTO login_attempts VALUES (?,?,?)", ("recovery", ip, now))
+                outcome = "bad"
+    if outcome == "locked":
+        raise HTTPException(429, "Too many attempts. Try again in 15 minutes.")
+    if outcome == "bad":
+        raise HTTPException(404, "That code was not recognised. Check it and try again.")
+    db.audit("user", "recovered_on_new_device")
+    with db.tx() as c:
+        last = c.execute("SELECT id FROM assessments WHERE user_id=(SELECT id FROM users WHERE token_hash=?) ORDER BY started_at DESC LIMIT 1",
+                         (security.token_hash(token),)).fetchone()
+    return {"token": token, "aid": last["id"] if last else None, "note": "Your code has been used. Create a new one in Privacy & sharing."}
 
 
 @app.get("/api/me/export")
@@ -1160,7 +1213,7 @@ def _drop_session(key):
 def _new_identity(st):
     token, uid = security.new_token(), str(uuid.uuid4())
     with db.tx() as c:
-        c.execute("INSERT INTO users VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), st["lang"] or "ar"))
+        c.execute("INSERT INTO users (id, token_hash, created_at, lang) VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), st["lang"] or "ar"))
         c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (uid, "core", 1, CONSENT_VERSION, time.time()))
         aid = str(uuid.uuid4())
         c.execute("INSERT INTO assessments (id, user_id, started_at, channel) VALUES (?,?,?,?)", (aid, uid, time.time(), "whatsapp"))
