@@ -35,25 +35,32 @@
   "vo": "Or he starts with his watch. Before asking anything, Riaya reads his sleep, activity, oxygen and glucose, and explains what the data already shows."
  },
  {
-  "id": "graph",
-  "kind": "desk",
-  "head": "Every signal is traceable",
-  "sub": "69 factors · 148 cited cause-and-effect links · 95 sources",
-  "vo": "Every signal flows through an evidence map of one hundred and forty eight cited links, each graded by the strength of the research behind it."
+  "id": "labreport",
+  "kind": "phone",
+  "head": "It reads his lab report",
+  "sub": "Every value, unit and range, checked by him before anything is saved.",
+  "vo": "He can upload a lab report. Riaya reads every value, unit and reference range, flags anything unusual, and saves nothing until he confirms. The file itself is never kept."
  },
  {
-  "id": "result",
+  "id": "explain",
   "kind": "phone",
-  "head": "A clear next step",
-  "sub": "Screening, not diagnosis. Three changes that matter most.",
-  "vo": "He gets a clear next step and the three changes that matter most for him. Screening, never a diagnosis."
+  "head": "Every finding explained",
+  "sub": "What we saw, why it matters, the evidence, and what it cannot tell him.",
+  "vo": "Every finding is explained: what was seen, why it matters, how strong the evidence is, and what it cannot tell him. A what-if view shows how much of his signal comes from habits he can change. It is education, never a fertility prediction."
  },
  {
   "id": "clinician",
   "kind": "desk",
-  "head": "A doctor checks every referral",
-  "sub": "Rapid review · explanations · handover to the right clinic",
-  "vo": "A licensed doctor reviews every specialist referral. Urgent findings get a forty eight hour fast track, private voice notes, and a handover package that tells the clinic which tests are already done."
+  "head": "One workspace for the doctor",
+  "sub": "Patient, reasoning and actions side by side, with the evidence one click away",
+  "vo": "A licensed doctor reviews every specialist referral in one workspace: the patient, the reasoning and the actions side by side. Any factor opens the evidence behind it. Contradictions are flagged, tests already done are not repeated, and overriding the suggestion needs a written reason."
+ },
+ {
+  "id": "journey",
+  "kind": "phone",
+  "head": "Care continues",
+  "sub": "His journey: every step until he is seen, and what changed since last time.",
+  "vo": "Care does not stop at a referral. His journey tracks every step until he is seen, what has improved since his last check, and if something stopped him from going, the programme learns why."
  },
  {
   "id": "dashboard",

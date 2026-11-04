@@ -6,7 +6,7 @@ Men in Abu Dhabi usually reach fertility care late: after months of trying, and 
 
 ![Riaya demo](docs/media/riaya-demo.gif)
 
-**Watch the full demo (1:43, narrated):** [docs/media/riaya-demo.mp4](docs/media/riaya-demo.mp4)
+**Watch the full demo (2:38, narrated):** [docs/media/riaya-demo.mp4](docs/media/riaya-demo.mp4)
 
 ## How it works
 

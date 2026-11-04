@@ -95,13 +95,41 @@ async function caption(page, sc) {
     for (let i = 0; i < 5; i++) { await p.mouse.wheel(0, 300); await wait(800); }
   }, PHONE_OPTS);
 
-  await rec(b, "clinician", DESK, async p => {
+  await rec(b, "labreport", PHONE, async p => {
+    await prep(p, "ar", { token: data.labreport.token, aid: data.labreport.aid });
+    await p.goto(BASE + "/index.html"); await wait(400);
+    await p.evaluate(() => { S.aid = localStorage.getItem("aid"); tests(); }); await wait(1500);
+    await p.click("#lrs"); await p.waitForSelector("#lrok", { timeout: 15000 }); await wait(1200);
+    for (let i = 0; i < 4; i++) { await p.mouse.wheel(0, 220); await wait(900); }
+    await p.click("#lrok"); await wait(1200);
+  }, PHONE_OPTS);
+
+  await rec(b, "explain", PHONE, async p => {
+    await prep(p, "ar", { token: data.result.token, aid: data.result.aid, done: "1" });
+    await p.goto(BASE + "/index.html"); await p.waitForSelector("#wiOpts .opt", { timeout: 20000 }); await wait(400);
+    await p.evaluate(() => document.querySelector("#explain").scrollIntoView({ behavior: "smooth" })); await wait(1400);
+    await p.click("#explain details summary"); await wait(2200);
+    await p.evaluate(() => document.querySelector("#wi").scrollIntoView({ behavior: "smooth" })); await wait(1500);
+    const opts = await p.$$("#wiOpts .opt");
+    for (const o of opts.slice(0, 3)) { await o.click(); await wait(1100); }
+  }, PHONE_OPTS);
+
+  await rec(b, "clinician", { width: 1500, height: 844 }, async p => {
     await p.goto(BASE + "/clinician.html"); await p.fill("#p", "demo-clinician"); await p.click("#go");
-    await p.waitForSelector(".qitem"); await caption(p, S.clinician); await wait(700);
-    await p.click(".qitem"); await p.waitForSelector("#hoView"); await wait(2200);
-    await p.mouse.move(1100, 600); await p.mouse.wheel(0, 420); await wait(1500);
-    await p.click("#hoView"); await wait(500); await p.mouse.wheel(0, 380); await wait(1800); await p.mouse.wheel(0, 500); await wait(1500);
+    await p.waitForSelector(".qitem"); await caption(p, S.clinician);
+    await p.click(`.qitem[data-id="${data.rapid.aid}"]`); await p.waitForSelector(".ws"); await wait(3200);
+    await p.click(".wcol.mid [data-ev]"); await p.waitForSelector(".evx"); await wait(2600);
+    await p.mouse.move(980, 600); await p.mouse.wheel(0, 380); await wait(2200);
+    await p.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" })); await wait(1200);
+    await p.fill("#note", "Pattern fits outside testosterone use; discuss sensitively before referral"); await wait(1500);
   });
+
+  await rec(b, "journey", PHONE, async p => {
+    await prep(p, "ar", { token: data.journey.token, aid: data.journey.aid, done: "1" });
+    await p.goto(BASE + "/index.html"); await p.waitForSelector(".next"); await wait(500);
+    await p.evaluate(() => renderJourney()); await wait(1800);
+    for (let i = 0; i < 6; i++) { await p.mouse.wheel(0, 300); await wait(900); }
+  }, PHONE_OPTS);
 
   await rec(b, "dashboard", DESK, async p => {
     await p.goto(BASE + "/clinician.html"); await p.fill("#p", "demo-clinician"); await p.click("#go"); await p.waitForSelector(".qitem");
