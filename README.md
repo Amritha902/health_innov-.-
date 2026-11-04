@@ -64,20 +64,22 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --app-dir backend --port 8000
 ```
 
-Open http://localhost:8000. Doctor console: `/clinician.html` (demo login `clinician` / `demo-clinician`). Also `/chat.html`, `/whatsapp.html`, `/graph.html`, `/fabric.html`, and API docs at `/api/docs`.
+Open http://localhost:8000. To enable the local-only demo clinician account, set `RIAYA_ENABLE_DEMO_CLINICIAN=true` before starting the server; the demo login is `clinician` / `demo-clinician`. Never enable this on a public deployment. Also `/chat.html`, `/whatsapp.html`, `/graph.html`, `/fabric.html`, and API docs at `/api/docs`.
 
 ```bash
-.venv/bin/python -m pytest -q                               # 16 end-to-end tests (SQLite; set DATABASE_URL to run on Postgres)
+.venv/bin/python -m pytest -q                               # 23 end-to-end tests (SQLite; set DATABASE_URL to run on Postgres)
 .venv/bin/python validation/run_validation.py --seed-demo   # validation report + simulated cases for the console
 ```
 
-**Deploy:** `render.yaml` deploys to Render. Optional settings:
+**Deploy:** `render.yaml` deploys the app to Render without seeding simulated cases or creating a default clinician account. Before any real pilot, configure a managed Postgres database (`DATABASE_URL`), a strong unique `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD`, and a securely generated `RIAYA_DATA_KEY`. The free Render filesystem is ephemeral; do not rely on local SQLite for durable records. Do not collect real patient data until UAE hosting, health-data compliance, clinical governance and security review are confirmed. Optional settings:
 
 | Setting | Purpose |
 |---|---|
 | `DATABASE_URL` | Postgres instead of SQLite |
 | `RIAYA_DATA_KEY` | Encryption key |
-| `RIAYA_CLINICIAN_PASSWORD` | Doctor console password |
+| `RIAYA_CLINICIAN_USER` | Doctor console username (required to provision an account) |
+| `RIAYA_CLINICIAN_PASSWORD` | Doctor console password (required to provision an account) |
+| `RIAYA_ENABLE_DEMO_CLINICIAN` | Local demo only; explicitly enables the non-production demo credentials |
 | `TWILIO_AUTH_TOKEN` | Verify WhatsApp webhooks |
 | `RIAYA_WHATSAPP_NUMBER` | Show a QR code on the WhatsApp page |
 | `RIAYA_PUBLIC_URL` | Public address used in links |
