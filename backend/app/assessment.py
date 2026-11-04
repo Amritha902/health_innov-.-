@@ -7,12 +7,12 @@ DISCLAIMER = {
 }
 
 
-def run(answers, wearable=None, semen=None, with_models=True):
+def run(answers, wearable=None, semen=None, with_models=True, labs=None):
     g = graph()
-    inputs, provenance, ins = features.build_inputs(answers, wearable, semen)
+    inputs, provenance, ins = features.build_inputs(answers, wearable, semen, labs)
     scores = g.score(inputs)
     attribution = g.shapley(inputs)
-    decision = triage.decide(answers, ins, scores, semen, g, wearable)
+    decision = triage.decide(answers, ins, scores, semen, g, wearable, labs)
     top, more = plan.build(attribution, g, inputs)
     protective = [{"node": k, "label": g.nodes[k]["label"]} for k in inputs if g.nodes[k].get("protective")]
     result = {
@@ -29,6 +29,7 @@ def run(answers, wearable=None, semen=None, with_models=True):
         "non_modifiable": [{"node": k, "label": g.nodes[k]["label"]} for k in attribution
                            if g.nodes[k].get("modifiable") is False],
         "semen": semen,
+        "labs": labs,
         "wearable": wearable,
     }
     if with_models:
@@ -50,6 +51,7 @@ TESTS_AR = {
     "HbA1c": "السكر التراكمي HbA1c",
     "Lipid profile": "الدهون في الدم",
     "Baseline semen analysis": "تحليل أساسي للسائل المنوي",
+    "Repeat total testosterone (7–11 am)": "إعادة فحص التستوستيرون الكلي (٧–١١ صباحاً)",
 }
 NOTES_AR = {
     "One result": "نتيجة واحدة لا تكفي. تتفاوت النتائج كثيراً؛ وتُؤكَّد أي نتيجة غير طبيعية بفحص متكرر بعد نحو ٣ أشهر.",
@@ -97,4 +99,7 @@ def user_view(result, lang="en"):
         "tests": [TESTS_AR.get(x, x) if lang == "ar" else x for x in t["tests"]],
         "parallel": t["parallel"],
         "semen_notes": [_tr_note(n, lang) for n in (result.get("semen") or {}).get("notes", [])],
+        "rapid_review": t.get("rapid_review", False),
+        "sla_hours": t.get("sla_hours"),
+        "genomic": bool(t.get("genomic", {}).get("flag")),
     }

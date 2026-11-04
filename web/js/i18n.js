@@ -57,6 +57,15 @@ const T = {
     restart: "Start a new check",
     errAge: "Please add your age in 'About you'.",
     uploaded: "Read successfully", uploadErr: "Couldn't read that file",
+    labsTitle: "Recent blood tests (optional)", labsSub: "If you had any of these in the last 6 months, adding them avoids repeating tests.",
+    tT: "Total testosterone", tFSH: "FSH (IU/L)", tLH: "LH (IU/L)", tA1c: "HbA1c (%)", tVD: "Vitamin D", tDate: "Test date", saveLabs: "Save blood tests",
+    rapidTitle: "Fast-track review", rapidSub: h => `A men's health doctor will review your result within ${h} hours. You can message them privately here.`,
+    reqReview: "Ask a doctor to review my result", reqReviewSub: "Your result suggests a doctor's review. Nothing is shared unless you press this.", reqDone: "Sent to a doctor for review.",
+    msgTitle: "Private messages with your doctor", msgPh: "Write a message…", send: "Send", you: "You", doctor: "Doctor", videoReady: "Your private video consultation is ready", joinVideo: "Join video call",
+    genomicNote: "Some results are best explained by a genetics specialist. This is a routine, private step, and your doctor will explain it.",
+    partnerTitle: "Share your progress with your wife", partnerSub: "She will see only that you completed the check and the kind of next step — no answers or results. You can withdraw it at any time.",
+    partnerBtn: "Create link", partnerCopy: "Copy link", partnerRevoke: "Withdraw link", partnerCopied: "Copied",
+
   },
   ar: {
     app: "رعاية", tagline: "فحص صحة الرجل", exit: "خروج سريع", lang: "English",
@@ -116,6 +125,15 @@ const T = {
     restart: "ابدأ فحصاً جديداً",
     errAge: "يرجى إضافة عمرك في قسم «عنك».",
     uploaded: "تمت القراءة بنجاح", uploadErr: "تعذّرت قراءة الملف",
+    labsTitle: "تحاليل الدم الأخيرة (اختياري)", labsSub: "إذا أجريت أياً منها خلال الأشهر الستة الماضية، فإضافتها تجنّبك تكرار الفحوصات.",
+    tT: "التستوستيرون الكلي", tFSH: "هرمون FSH ‏(IU/L)", tLH: "هرمون LH ‏(IU/L)", tA1c: "السكر التراكمي HbA1c ‏(٪)", tVD: "فيتامين د", tDate: "تاريخ الفحص", saveLabs: "حفظ تحاليل الدم",
+    rapidTitle: "مراجعة سريعة", rapidSub: h => `سيراجع طبيب صحة الرجل نتيجتك خلال ${h} ساعة. يمكنك مراسلته بخصوصية هنا.`,
+    reqReview: "اطلب من طبيب مراجعة نتيجتي", reqReviewSub: "نتيجتك تستدعي مراجعة طبيب. لا يُشارك شيء إلا إذا ضغطت هنا.", reqDone: "أُرسلت إلى طبيب للمراجعة.",
+    msgTitle: "رسائل خاصة مع طبيبك", msgPh: "اكتب رسالة…", send: "إرسال", you: "أنت", doctor: "الطبيب", videoReady: "استشارتك المرئية الخاصة جاهزة", joinVideo: "انضم إلى المكالمة المرئية",
+    genomicNote: "بعض النتائج يشرحها مختص الوراثة بشكل أفضل. هذه خطوة روتينية وسرية، وسيشرحها لك طبيبك.",
+    partnerTitle: "شارك تقدمك مع زوجتك", partnerSub: "سترى فقط أنك أكملت الفحص ونوع الخطوة التالية — دون أي إجابات أو نتائج. يمكنك سحب الرابط في أي وقت.",
+    partnerBtn: "إنشاء رابط", partnerCopy: "نسخ الرابط", partnerRevoke: "سحب الرابط", partnerCopied: "تم النسخ",
+
   },
 };
 

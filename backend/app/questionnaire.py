@@ -43,6 +43,7 @@ SECTIONS = [
     {"id": "mind", "en": "Energy, mood & stress", "ar": "الطاقة والمزاج والضغط"},
     {"id": "history", "en": "Health history", "ar": "التاريخ الصحي"},
     {"id": "now", "en": "Anything right now?", "ar": "هل هناك شيء الآن؟"},
+    {"id": "prefs", "en": "Your preferences", "ar": "تفضيلاتك"},
 ]
 
 QUESTIONS = [
@@ -142,6 +143,13 @@ QUESTIONS = [
     q("phone_pocket", "heat", "yesno", "Phone in a front trouser pocket most of the day?", "هل تضع الهاتف في الجيب الأمامي للبنطال معظم اليوم؟", YES_NO),
     q("heat_work", "heat", "yesno", "Work outdoors in the heat, or drive more than 2 hours a day?", "هل تعمل في الخارج تحت الحرارة أو تقود أكثر من ساعتين يومياً؟", YES_NO),
     q("chemicals_work", "heat", "yesno", "Regular work contact with pesticides, solvents, paints, fuels or metals?", "هل تتعامل في العمل بانتظام مع المبيدات أو المذيبات أو الدهانات أو الوقود أو المعادن؟", YES_NO),
+    q("occupation", "heat", "choice", "Which best describes your work?", "ما الذي يصف عملك؟", [
+        opt("office", "Office / indoor", "مكتبي / داخلي"), opt("outdoor", "Outdoor / construction", "خارجي / إنشاءات"),
+        opt("industrial", "Industrial / oil, gas, petrochemical", "صناعي / نفط وغاز وبتروكيماويات"),
+        opt("agriculture", "Farming / landscaping", "زراعة / تنسيق حدائق"), opt("driving", "Driving / transport", "قيادة / نقل"),
+        opt("healthcare", "Healthcare / laboratory", "رعاية صحية / مختبرات"), opt("other", "Other", "أخرى")], optional=True),
+    q("near_traffic", "heat", "yesno_unsure", "Do you live or work within about 500 m of a highway, heavy traffic or an industrial area?",
+      "هل تسكن أو تعمل على بُعد نحو ٥٠٠ متر من طريق سريع أو حركة مرور كثيفة أو منطقة صناعية؟", YES_NO_UNSURE),
     q("indoors", "heat", "yesno", "Do you spend almost all daylight hours indoors?", "هل تقضي معظم ساعات النهار في الأماكن المغلقة؟", YES_NO),
     # mind: PSS-4 + PHQ-2 + ADAM
     q("pss1", "mind", "choice", "In the last month, how often have you felt unable to control the important things in your life?",
@@ -189,6 +197,14 @@ QUESTIONS = [
       help_ar="أمر شائع في كثير من العائلات ولا يدعو للقلق بحد ذاته. يساعدنا فقط في اقتراح الاستشارة الوراثية عند الحاجة."),
     # right now
     q("red_flags", "now", "multi", "Do any of these apply right now?", "هل ينطبق عليك أيٌّ مما يلي الآن؟", None, optional=True),
+    q("pref_language", "prefs", "choice", "Preferred language for doctors and letters", "اللغة المفضلة للتواصل مع الأطباء والخطابات", [
+        opt("ar", "Arabic", "العربية"), opt("en", "English", "الإنجليزية"), opt("ur", "Urdu", "الأردية"), opt("hi", "Hindi", "الهندية"),
+        opt("ml", "Malayalam", "المالايالامية"), opt("other", "Other", "أخرى")], optional=True),
+    q("pref_clinician", "prefs", "choice", "Do you have a preference for your doctor?", "هل لديك تفضيل بخصوص الطبيب؟", [
+        opt("male", "Male doctor", "طبيب رجل"), opt("any", "No preference", "لا يهم")], optional=True),
+    q("pref_contact", "prefs", "choice", "How should a clinic contact you?", "كيف تتواصل معك العيادة؟", [
+        opt("app_only", "Only through this app — no calls or SMS", "عبر هذا التطبيق فقط — بدون اتصالات أو رسائل"),
+        opt("clinic", "I will contact the clinic myself", "سأتواصل مع العيادة بنفسي")], optional=True),
 ]
 
 

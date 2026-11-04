@@ -58,7 +58,7 @@ def instruments(a):
     return out
 
 
-def build_inputs(a, wearable=None, semen=None):
+def build_inputs(a, wearable=None, semen=None, labs=None):
     """Returns (inputs: node -> activation, provenance: node -> [reasons])."""
     wearable = wearable or {}
     inp, why = {}, {}
@@ -157,6 +157,13 @@ def build_inputs(a, wearable=None, semen=None):
         put("phone_pocket", 0.6, "Phone in front pocket")
     if a.get("heat_work") == "yes":
         put("occupational_heat", 0.7, "Outdoor heat or long daily driving")
+    if a.get("near_traffic") == "yes":
+        put("air_pollution", 0.6, "Lives or works near heavy traffic / industry")
+    occ = a.get("occupation")
+    if occ in ("industrial", "agriculture"):
+        put("edc", 0.6, "Occupation with chemical exposure")
+    if occ in ("outdoor", "driving"):
+        put("occupational_heat", 0.6, "Outdoor or driving work")
     if a.get("chemicals_work") == "yes":
         put("edc", 0.8, "Regular work contact with chemicals")
     if a.get("vitd") == "yes":
@@ -192,7 +199,7 @@ def build_inputs(a, wearable=None, semen=None):
         put("genetic", 0.4, "Male relatives needed fertility help")
 
     # observed test results override inference
-    for node, value, reason, source in (semen or {}).get("graph_inputs", []):
+    for node, value, reason, source in (semen or {}).get("graph_inputs", []) + (labs or {}).get("graph_inputs", []):
         inp[node] = value
         why.setdefault(node, []).append({"source": source, "reason": reason})
 

@@ -157,3 +157,59 @@ def test_data_encrypted_at_rest(client):
     with db.tx() as c:
         blob = c.execute("SELECT answers FROM assessments WHERE id=?", (aid,)).fetchone()[0]
     assert b"aas" not in blob and b"current" not in blob
+
+
+def test_labs_genomic_rapid_handover(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "parents_related": "yes", "pref_language": "ar",
+                                                                    "pref_contact": "app_only", "pref_clinician": "male"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/semen", headers=h, json={"source": "lab", "volume_ml": 1.0, "concentration_m_per_ml": 0, "ph": 6.8})
+    lab = client.post(f"/api/assessments/{aid}/labs", headers=h, json={"testosterone": 9.5, "fsh": 14, "lh": 11, "hba1c": 5.9, "date": "2026-10-20"}).json()
+    assert {f[0] for f in lab["findings"]} >= {"t_borderline", "fsh_high", "t_pattern", "a1c_pre"}
+    v = client.post(f"/api/assessments/{aid}/submit", headers=h).json()
+    assert v["rapid_review"] and v["sla_hours"] == 48 and v["genomic"]
+    ch = clinician(client)
+    q = client.get("/api/clinician/queue", headers=ch).json()["pending"]
+    assert q[0]["rapid"] and q[0]["due_at"]
+    case = client.get(f"/api/clinician/cases/{aid}", headers=ch).json()
+    gen = case["result"]["triage"]["genomic"]
+    assert gen["flag"] and "Karyotype" in gen["tests"] and any("CFTR" in t for t in gen["tests"])
+    # labs already done are not re-requested
+    assert not any(t.startswith("FSH, LH") for t in case["result"]["triage"]["tests"])
+    client.post(f"/api/clinician/cases/{aid}/review", headers=ch, json={"decision": "approve"})
+    ho = client.get(f"/api/clinician/cases/{aid}/handover", headers=ch).json()
+    assert ho["bundle"]["type"] == "document" and ho["bundle"]["entry"][0]["resource"]["resourceType"] == "Composition"
+    titles = [s["title"] for s in ho["letter"]["sections"]]
+    assert "Results already available" in titles and "Genomic flag" in titles
+    text = str(ho["letter"])
+    assert "do not repeat" in text and "no phone calls or SMS" in text and "male doctor" in text
+    # messaging + video
+    client.post(f"/api/clinician/cases/{aid}/messages", headers=ch, json={"body": "Hello, I have reviewed your results."})
+    url = client.post(f"/api/clinician/cases/{aid}/video", headers=ch).json()["url"]
+    assert url.startswith("https://meet.jit.si/riaya-")
+    msgs = client.get(f"/api/assessments/{aid}/messages", headers=h).json()
+    assert msgs[0]["body"].startswith("Hello") and len(msgs) == 2
+    client.post(f"/api/assessments/{aid}/messages", headers=h, json={"body": "Thank you"})
+    assert client.get(f"/api/assessments/{aid}/result", headers=h).json()["referral"]["video_url"] == url
+
+
+def test_partner_link_status_only(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "reason": ["trying"], "months_trying": 14}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    tok = client.post(f"/api/assessments/{aid}/partner-link", headers=h).json()["token"]
+    p = client.get(f"/api/partner/{tok}").json()
+    assert p["status"] == "together" and set(p) == {"completed_on", "status", "message"}
+    assert "smok" not in str(p).lower() and "bmi" not in str(p).lower()
+    client.delete(f"/api/assessments/{aid}/partner-link", headers=h)
+    assert client.get(f"/api/partner/{tok}").status_code == 404
+
+
+def test_request_review_after_declining(client):
+    h, aid = user(client, review=False)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "aas": "current"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    assert client.post(f"/api/assessments/{aid}/messages", headers=h, json={"body": "hi"}).status_code == 403
+    client.post(f"/api/assessments/{aid}/request-review", headers=h)
+    ch = clinician(client)
+    assert aid in [x["id"] for x in client.get("/api/clinician/queue", headers=ch).json()["pending"]]

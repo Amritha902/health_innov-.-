@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS audit (
   ts REAL NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT);
 CREATE TABLE IF NOT EXISTS events (
   ts REAL NOT NULL, assessment_id TEXT, type TEXT NOT NULL, detail TEXT);
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, sender TEXT NOT NULL, body BLOB NOT NULL, ts REAL NOT NULL, read_at REAL);
+CREATE TABLE IF NOT EXISTS partner_links (
+  token_hash TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, created_at REAL NOT NULL, expires_at REAL NOT NULL, revoked INTEGER DEFAULT 0, views INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS feedback (
   assessment_id TEXT PRIMARY KEY, trust INTEGER, clarity INTEGER, comfort INTEGER, ts REAL);
 """
@@ -56,9 +60,20 @@ def tx():
         con.close()
 
 
+MIGRATIONS = {
+    "assessments": [("labs", "BLOB")],
+    "referrals": [("rapid", "INTEGER DEFAULT 0"), ("due_at", "REAL"), ("video_url", "TEXT"), ("handover_at", "REAL")],
+}
+
+
 def init():
     with tx() as c:
         c.executescript(SCHEMA)
+        for table, cols in MIGRATIONS.items():
+            have = {r[1] for r in c.execute(f"PRAGMA table_info({table})")}
+            for name, decl in cols:
+                if name not in have:
+                    c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
 
 def audit(actor, action, target=None):

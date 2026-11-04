@@ -38,6 +38,8 @@ ACTIONS = {
     "phone_pocket": ("Keep the phone in a jacket pocket or bag.", "ضع الهاتف في جيب السترة أو في حقيبة."),
     "occupational_heat": ("Take cool breaks out of the heat and wear loose, breathable clothing.", "خذ استراحات باردة بعيداً عن الحرارة وارتدِ ملابس فضفاضة جيدة التهوية."),
     "edc": ("Use gloves and ventilation at work; wash before eating.", "استخدم القفازات والتهوية في العمل؛ واغسل يديك قبل الأكل."),
+    "air_pollution": ("On high-dust or high-pollution days, keep windows closed and exercise indoors; a HEPA filter helps at home.",
+                      "في أيام الغبار أو التلوث المرتفع، أغلق النوافذ ومارس الرياضة في الداخل؛ ويساعد فلتر HEPA في المنزل."),
     "low_sun": ("Get 15 minutes of morning sun or ask about a vitamin D test.", "تعرّض لشمس الصباح ١٥ دقيقة أو اسأل عن فحص فيتامين د."),
     "vitd_def": ("Take vitamin D as advised by your doctor.", "تناول فيتامين د حسب إرشاد طبيبك."),
     "psych_stress": ("Ten minutes a day of something that resets you — a walk, prayer, breathing — measurably lowers stress hormones.",

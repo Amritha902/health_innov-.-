@@ -192,6 +192,15 @@
    "label_ar": "قلة التعرض للشمس"
   },
   {
+   "id": "air_pollution",
+   "label": "Air pollution (heavy traffic / industrial area)",
+   "label_ar": "تلوث الهواء (حركة مرورية كثيفة / منطقة صناعية)",
+   "type": "exposure",
+   "modifiable": true,
+   "group": "environment",
+   "local": "rapidly developing region"
+  },
+  {
    "id": "paternal_age",
    "label": "Age > 40",
    "type": "exposure",
@@ -2261,6 +2270,42 @@
    "note": "Transient; sperm production recovers over ~3 months.",
    "kind": "assoc",
    "strength": 0.5
+  },
+  {
+   "source": "air_pollution",
+   "target": "ros",
+   "sign": "+",
+   "grade": "B",
+   "refs": [
+    "lafuente2016"
+   ],
+   "note": "Particulate matter linked to oxidative damage.",
+   "kind": "causal",
+   "strength": 0.4
+  },
+  {
+   "source": "air_pollution",
+   "target": "dna_frag",
+   "sign": "+",
+   "grade": "B",
+   "refs": [
+    "lafuente2016"
+   ],
+   "note": "Meta-analysis: air pollution associated with higher DNA fragmentation and poorer morphology.",
+   "kind": "assoc",
+   "strength": 0.4
+  },
+  {
+   "source": "air_pollution",
+   "target": "abn_morph",
+   "sign": "+",
+   "grade": "B",
+   "refs": [
+    "lafuente2016"
+   ],
+   "note": "",
+   "kind": "assoc",
+   "strength": 0.4
   }
  ],
  "redFlags": [
@@ -2429,7 +2474,10 @@
   "uae_law2_2019": "UAE Federal Law No. 2 of 2019 on the use of ICT in health fields (health-data localisation).",
   "adhics": "Department of Health Abu Dhabi. Healthcare Information and Cyber Security Standard (ADHICS).",
   "carlsen2003": "Carlsen E et al. (2003). History of febrile illness and variation in semen quality. Hum Reprod.",
-  "asrm2020": "Practice Committee of the ASRM (2020). Definitions of infertility and recurrent pregnancy loss: a committee opinion. Fertil Steril."
+  "asrm2020": "Practice Committee of the ASRM (2020). Definitions of infertility and recurrent pregnancy loss: a committee opinion. Fertil Steril.",
+  "lafuente2016": "Lafuente R et al. (2016). Outdoor air pollution and sperm quality. Fertil Steril.",
+  "ada2024": "American Diabetes Association (2024). Standards of Care in Diabetes: Classification and diagnosis of diabetes.",
+  "holick2011": "Holick MF et al. (2011). Evaluation, treatment, and prevention of vitamin D deficiency: Endocrine Society clinical practice guideline. J Clin Endocrinol Metab."
  },
  "signals": [
   {
@@ -2600,6 +2648,51 @@
    "rule": "Home test below its cut-off (e.g. motile sperm concentration < 6 M/mL)",
    "refs": [
     "kanakasabapathy2017"
+   ]
+  },
+  {
+   "id": "lab_testosterone",
+   "node": "hypogonadism",
+   "source": "lab",
+   "rule": "Total testosterone < 12 nmol/L (< 8 clearly low)",
+   "refs": [
+    "eau2024"
+   ]
+  },
+  {
+   "id": "lab_fsh",
+   "node": "low_count",
+   "source": "lab",
+   "rule": "FSH > 7.6 IU/L",
+   "refs": [
+    "eau2024"
+   ]
+  },
+  {
+   "id": "lab_hba1c",
+   "node": "diabetes",
+   "source": "lab",
+   "rule": "HbA1c ≥ 6.5% (5.7–6.4% pre-diabetes)",
+   "refs": [
+    "ada2024"
+   ]
+  },
+  {
+   "id": "lab_vitd",
+   "node": "vitd_def",
+   "source": "lab",
+   "rule": "25-OH vitamin D < 20 ng/mL",
+   "refs": [
+    "holick2011"
+   ]
+  },
+  {
+   "id": "home_location",
+   "node": "air_pollution",
+   "source": "questionnaire",
+   "rule": "Home or work within ~500 m of heavy traffic or an industrial area",
+   "refs": [
+    "lafuente2016"
    ]
   }
  ]

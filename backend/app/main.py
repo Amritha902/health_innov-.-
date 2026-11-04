@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assessment, db, fabric, ifhas, questionnaire, security, semen, wearables
+from . import assessment, db, fabric, handover, ifhas, labs, questionnaire, security, semen, wearables
 from .knowledge import graph
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -272,7 +272,7 @@ def submit(aid: str, lang: str = "en", user=Depends(current_user)):
     answers = security.unseal(row["answers"]) or {}
     if not answers.get("age"):
         raise HTTPException(400, "Please answer at least the 'About you' section")
-    result = assessment.run(answers, security.unseal(row["wearable"]), security.unseal(row["semen"]))
+    result = assessment.run(answers, security.unseal(row["wearable"]), security.unseal(row["semen"]), labs=security.unseal(row["labs"]))
     t = result["triage"]
     review_ok = consents(user)["clinician_review"]
     now = time.time()
@@ -283,8 +283,9 @@ def submit(aid: str, lang: str = "en", user=Depends(current_user)):
         c.execute("DELETE FROM referrals WHERE assessment_id=? AND status='pending_review'", (aid,))
         if t["level"] != "self_care":
             status = "pending_review" if t["requires_review"] and review_ok else "suggested"
-            c.execute("INSERT INTO referrals (id, assessment_id, level, status, created_at) VALUES (?,?,?,?,?)",
-                      (str(uuid.uuid4()), aid, t["level"], status, now))
+            due = now + t["sla_hours"] * 3600 if t.get("rapid_review") and t.get("sla_hours") else None
+            c.execute("INSERT INTO referrals (id, assessment_id, level, status, created_at, rapid, due_at) VALUES (?,?,?,?,?,?,?)",
+                      (str(uuid.uuid4()), aid, t["level"], status, now, int(bool(t.get("rapid_review"))), due))
     db.event(aid, "completed", t["level"])
     view = assessment.user_view(result, lang if lang in ("en", "ar") else "en")
     view["clinician_review"] = "queued" if t["requires_review"] and review_ok else ("available" if t["requires_review"] else "not_needed")
@@ -299,8 +300,11 @@ def get_result(aid: str, lang: str = "en", user=Depends(current_user)):
         raise HTTPException(404, "Not completed")
     view = assessment.user_view(result, lang)
     with db.tx() as c:
-        ref = c.execute("SELECT status, final_level, reviewed_at FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
+        ref = c.execute("SELECT status, final_level, reviewed_at, rapid, due_at, video_url FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
     view["referral"] = dict(ref) if ref else None
+    view["review_consent"] = bool(row["review_consent"])
+    t = result["triage"]
+    view["clinician_review"] = ("queued" if row["review_consent"] else "available") if t["requires_review"] else "not_needed"
     return view
 
 
@@ -359,7 +363,13 @@ def export_me(user=Depends(current_user)):
     return {"consents": consents(user), "shares": [dict(s) for s in shares],
             "assessments": [{"id": r["id"], "started_at": r["started_at"], "completed_at": r["completed_at"],
                              "answers": security.unseal(r["answers"]), "device_summary": security.unseal(r["wearable"]),
-                             "test_result": security.unseal(r["semen"]), "result": security.unseal(r["result"])} for r in rows]}
+                             "test_result": security.unseal(r["semen"]), "blood_tests": security.unseal(r["labs"]),
+                             "result": security.unseal(r["result"]), "messages": _msgs_for(r["id"])} for r in rows]}
+
+
+def _msgs_for(aid):
+    with db.tx() as c:
+        return _messages(c, aid)
 
 
 @app.delete("/api/me")
@@ -371,6 +381,8 @@ def delete_me(user=Depends(current_user)):
             c.execute("DELETE FROM referrals WHERE assessment_id=?", (aid,))
             c.execute("DELETE FROM shares WHERE assessment_id=?", (aid,))
             c.execute("DELETE FROM feedback WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM messages WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM partner_links WHERE assessment_id=?", (aid,))
             c.execute("UPDATE events SET assessment_id=NULL WHERE assessment_id=?", (aid,))
         c.execute("DELETE FROM assessments WHERE user_id=?", (user,))
         c.execute("DELETE FROM consents WHERE user_id=?", (user,))
@@ -411,13 +423,17 @@ def queue(clin=Depends(current_clinician)):
         rows = c.execute("""SELECT a.*, r.id rid, r.status, r.level rlevel, r.created_at rcreated, r.final_level
                             FROM assessments a JOIN referrals r ON r.assessment_id=a.id
                             WHERE a.review_consent=1 AND r.status='pending_review'
-                            ORDER BY CASE a.level WHEN 'emergency' THEN 0 WHEN 'urgent_specialist' THEN 1
+                            ORDER BY r.rapid DESC, COALESCE(r.due_at, 9e18), CASE a.level WHEN 'emergency' THEN 0 WHEN 'urgent_specialist' THEN 1
                                      WHEN 'same_day_primary' THEN 2 WHEN 'andrology' THEN 3 ELSE 4 END, a.completed_at""").fetchall()
         recent = c.execute("""SELECT a.*, r.status, r.final_level, r.reviewed_at, r.reviewer FROM assessments a
                               JOIN referrals r ON r.assessment_id=a.id WHERE a.review_consent=1 AND r.status!='pending_review'
                               ORDER BY r.reviewed_at DESC LIMIT 30""").fetchall()
     db.audit(clin, "view_queue")
-    pick = lambda r: {"id": r["id"], "tier": r["tier"], "level": r["level"], "cohort": r["cohort"],
+    with db.tx() as c:
+        extra = {r["assessment_id"]: dict(r) for r in c.execute("SELECT assessment_id, rapid, due_at FROM referrals").fetchall()}
+        unread = {r[0]: r[1] for r in c.execute("SELECT assessment_id, COUNT(*) FROM messages WHERE sender='user' AND read_at IS NULL GROUP BY assessment_id")}
+    pick = lambda r: {"rapid": bool(extra.get(r["id"], {}).get("rapid")), "due_at": extra.get(r["id"], {}).get("due_at"),
+                      "unread": unread.get(r["id"], 0), "id": r["id"], "tier": r["tier"], "level": r["level"], "cohort": r["cohort"],
                       "completed_at": r["completed_at"], "simulated": bool(r["simulated"]),
                       "status": r["status"], "final_level": r["final_level"]}
     return {"pending": [pick(r) for r in rows], "recent": [pick(r) for r in recent]}
@@ -441,6 +457,8 @@ def case(aid: str, clin=Depends(current_clinician)):
         if not row:
             raise HTTPException(404, "Not found or not shared")
         ref = c.execute("SELECT * FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
+    with db.tx() as c:
+        msgs = _messages(c, aid)
     db.audit(clin, "view_case", aid)
     result = security.unseal(row["result"])
     answers = security.unseal(row["answers"]) or {}
@@ -453,7 +471,7 @@ def case(aid: str, clin=Depends(current_clinician)):
             "referral": {k: ref[k] for k in ref.keys() if k != "note"} if ref else None,
             "paths": {n: g.paths(n)[:3] for n in list((result or {}).get("attribution", {}))[:5]},
             "references": {r: g.refs[r] for r in {r for e in g.edges for r in e["refs"]}},
-            "simulated": bool(row["simulated"])}
+            "simulated": bool(row["simulated"]), "messages": msgs}
 
 
 @app.post("/api/clinician/share/{code}")
@@ -559,6 +577,185 @@ def audit_log(clin=Depends(current_clinician)):
     with db.tx() as c:
         rows = c.execute("SELECT * FROM audit ORDER BY ts DESC LIMIT 200").fetchall()
     return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------ blood results
+class LabsIn(BaseModel):
+    testosterone: Optional[float] = Field(None, ge=0, le=2000)
+    testosterone_unit: str = Field("nmol/L", pattern="^(nmol/L|ng/dL)$")
+    fsh: Optional[float] = Field(None, ge=0, le=200)
+    lh: Optional[float] = Field(None, ge=0, le=200)
+    hba1c: Optional[float] = Field(None, ge=3, le=20)
+    vitamin_d: Optional[float] = Field(None, ge=0, le=400)
+    vitamin_d_unit: str = Field("ng/mL", pattern="^(ng/mL|nmol/L)$")
+    date: Optional[str] = Field(None, max_length=10)
+
+
+@app.post("/api/assessments/{aid}/labs")
+def add_labs(aid: str, body: LabsIn, user=Depends(current_user)):
+    own_assessment(aid, user)
+    out = labs.interpret(body.model_dump(exclude_none=True))
+    with db.tx() as c:
+        c.execute("UPDATE assessments SET labs=? WHERE id=?", (security.seal(out), aid))
+    db.event(aid, "labs_added")
+    return {"findings": [f[:3] for f in out["findings"]]}
+
+
+# ------------------------------------------------------------------ rapid review: request, messages, video
+@app.post("/api/assessments/{aid}/request-review")
+def request_review(aid: str, user=Depends(current_user)):
+    """Explicit, case-level consent for a clinician to see this assessment (when global review consent was not given)."""
+    row = own_assessment(aid, user)
+    if not row["completed_at"]:
+        raise HTTPException(400, "Not completed")
+    with db.tx() as c:
+        c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (user, f"clinician_review:{aid}", 1, CONSENT_VERSION, time.time()))
+        c.execute("UPDATE assessments SET review_consent=1 WHERE id=?", (aid,))
+        c.execute("UPDATE referrals SET status='pending_review' WHERE assessment_id=? AND status='suggested'", (aid,))
+        if not c.execute("SELECT 1 FROM referrals WHERE assessment_id=?", (aid,)).fetchone():
+            c.execute("INSERT INTO referrals (id, assessment_id, level, status, created_at) VALUES (?,?,?,?,?)",
+                      (str(uuid.uuid4()), aid, row["level"], "pending_review", time.time()))
+    db.event(aid, "review_requested")
+    return {"queued": True}
+
+
+class MessageIn(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+def _messages(c, aid):
+    return [{"id": r["id"], "sender": r["sender"], "body": security.unseal(r["body"]), "ts": r["ts"]}
+            for r in c.execute("SELECT * FROM messages WHERE assessment_id=? ORDER BY ts", (aid,)).fetchall()]
+
+
+@app.get("/api/assessments/{aid}/messages")
+def user_messages(aid: str, user=Depends(current_user)):
+    own_assessment(aid, user)
+    with db.tx() as c:
+        c.execute("UPDATE messages SET read_at=? WHERE assessment_id=? AND sender='clinician' AND read_at IS NULL", (time.time(), aid))
+        return _messages(c, aid)
+
+
+@app.post("/api/assessments/{aid}/messages")
+def user_send(aid: str, body: MessageIn, user=Depends(current_user)):
+    row = own_assessment(aid, user)
+    if not row["review_consent"]:
+        raise HTTPException(403, "Request a clinician review first")
+    with db.tx() as c:
+        c.execute("INSERT INTO messages VALUES (?,?,?,?,?,NULL)", (str(uuid.uuid4()), aid, "user", security.seal(body.body), time.time()))
+    return {"ok": True}
+
+
+@app.get("/api/clinician/cases/{aid}/messages")
+def clin_messages(aid: str, clin=Depends(current_clinician)):
+    with db.tx() as c:
+        if not _clinician_can_see(c, aid):
+            raise HTTPException(404, "Not found")
+        c.execute("UPDATE messages SET read_at=? WHERE assessment_id=? AND sender='user' AND read_at IS NULL", (time.time(), aid))
+        return _messages(c, aid)
+
+
+@app.post("/api/clinician/cases/{aid}/messages")
+def clin_send(aid: str, body: MessageIn, clin=Depends(current_clinician)):
+    with db.tx() as c:
+        if not _clinician_can_see(c, aid):
+            raise HTTPException(404, "Not found")
+        c.execute("INSERT INTO messages VALUES (?,?,?,?,?,NULL)", (str(uuid.uuid4()), aid, "clinician", security.seal(body.body), time.time()))
+    db.audit(clin, "message_sent", aid)
+    return {"ok": True}
+
+
+VIDEO_BASE = os.environ.get("RIAYA_VIDEO_BASE", "https://meet.jit.si")
+
+
+@app.post("/api/clinician/cases/{aid}/video")
+def start_video(aid: str, clin=Depends(current_clinician)):
+    """Creates an unguessable video room. For production, point RIAYA_VIDEO_BASE at a self-hosted Jitsi inside the UAE."""
+    url = f"{VIDEO_BASE}/riaya-{security.new_token()[:24]}"
+    with db.tx() as c:
+        if not _clinician_can_see(c, aid):
+            raise HTTPException(404, "Not found")
+        c.execute("UPDATE referrals SET video_url=? WHERE assessment_id=?", (url, aid))
+        c.execute("INSERT INTO messages VALUES (?,?,?,?,?,NULL)", (str(uuid.uuid4()), aid, "clinician",
+                  security.seal("استشارتك المرئية الخاصة جاهزة. افتح الرابط من صفحة نتيجتك متى كنت مستعداً. / "
+                                "A private video consultation is ready. Open the link on your result page when you are ready."), time.time()))
+    db.audit(clin, "video_created", aid)
+    return {"url": url}
+
+
+# ------------------------------------------------------------------ care navigation handover
+@app.get("/api/clinician/cases/{aid}/handover")
+def get_handover(aid: str, clin=Depends(current_clinician)):
+    with db.tx() as c:
+        row = _clinician_can_see(c, aid)
+        if not row:
+            raise HTTPException(404, "Not found")
+        ref = c.execute("SELECT * FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
+        if ref:
+            c.execute("UPDATE referrals SET handover_at=? WHERE id=?", (time.time(), ref["id"]))
+    out = handover.build(security.unseal(row["answers"]) or {}, security.unseal(row["result"]),
+                         {k: ref[k] for k in ref.keys() if k != "note"} if ref else None, clin)
+    db.audit(clin, "handover_generated", aid)
+    return out
+
+
+# ------------------------------------------------------------------ partner mode (status only)
+PARTNER_DAYS = 30
+PARTNER_TEXT = {
+    "none": {"en": "He has completed his men's health check. No follow-up visit is needed right now.",
+             "ar": "أكمل فحص صحة الرجل. لا حاجة لزيارة متابعة في الوقت الحالي."},
+    "routine": {"en": "He has completed his men's health check. A routine follow-up visit is recommended.",
+                "ar": "أكمل فحص صحة الرجل. يُنصح بزيارة متابعة روتينية."},
+    "specialist": {"en": "He has completed his men's health check. A specialist visit is recommended — he is taking the next step.",
+                   "ar": "أكمل فحص صحة الرجل. يُنصح بزيارة مختص — وهو يتخذ الخطوة التالية."},
+    "together": {"en": "He has completed his men's health check. A joint visit to a fertility clinic is recommended, so you can both be seen at the same time.",
+                 "ar": "أكمل فحص صحة الرجل. يُنصح بزيارة مشتركة لعيادة الخصوبة، ليتم فحصكما معاً في الوقت نفسه."},
+}
+
+
+def _partner_status(level):
+    if level == "fertility_services":
+        return "together"
+    if level in ("andrology", "urgent_specialist", "emergency", "same_day_primary"):
+        return "specialist"
+    return "routine" if level == "primary_care" else "none"
+
+
+@app.post("/api/assessments/{aid}/partner-link")
+def partner_link(aid: str, user=Depends(current_user)):
+    row = own_assessment(aid, user)
+    if not row["completed_at"]:
+        raise HTTPException(400, "Not completed")
+    token = security.new_token()
+    with db.tx() as c:
+        c.execute("DELETE FROM partner_links WHERE assessment_id=?", (aid,))
+        c.execute("INSERT INTO partner_links VALUES (?,?,?,?,0,0)", (security.token_hash(token), aid, time.time(), time.time() + PARTNER_DAYS * 86400))
+    db.event(aid, "partner_link_created")
+    return {"token": token, "path": f"/partner.html#{token}", "expires_in_days": PARTNER_DAYS}
+
+
+@app.delete("/api/assessments/{aid}/partner-link")
+def partner_revoke(aid: str, user=Depends(current_user)):
+    own_assessment(aid, user)
+    with db.tx() as c:
+        c.execute("UPDATE partner_links SET revoked=1 WHERE assessment_id=?", (aid,))
+    return {"revoked": True}
+
+
+@app.get("/api/partner/{token}")
+def partner_view(token: str):
+    """Shows only completion and the broad kind of next step. No answers, scores, results or reasons."""
+    with db.tx() as c:
+        link = c.execute("SELECT * FROM partner_links WHERE token_hash=? AND revoked=0 AND expires_at>?",
+                         (security.token_hash(token), time.time())).fetchone()
+        if not link:
+            raise HTTPException(404, "This link has expired or was withdrawn")
+        a = c.execute("SELECT completed_at, level FROM assessments WHERE id=?", (link["assessment_id"],)).fetchone()
+        ref = c.execute("SELECT final_level FROM referrals WHERE assessment_id=?", (link["assessment_id"],)).fetchone()
+        c.execute("UPDATE partner_links SET views=views+1 WHERE token_hash=?", (link["token_hash"],))
+    level = (ref and ref["final_level"]) or a["level"]
+    status = _partner_status(level)
+    return {"completed_on": time.strftime("%Y-%m-%d", time.gmtime(a["completed_at"])), "status": status, "message": PARTNER_TEXT[status]}
 
 
 # ------------------------------------------------------------------ static web app

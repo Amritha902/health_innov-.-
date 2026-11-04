@@ -18,6 +18,7 @@ Confirm with legal counsel before the pilot. This is the team's reading, not leg
 | User-controlled sharing | Clinicians see a case only if the man consented to review, or if he gave them an 8-character one-time code. The code expires after 72 h and he can revoke it; revoking removes access immediately (tested). |
 | Right to erase / export | `DELETE /api/me` erases all rows (SQLite `secure_delete` overwrites them) and unlinks event counters. `GET /api/me/export` returns everything held about him. |
 | Access control and audit | Clinician passwords use PBKDF2-SHA256 (310k iterations), sessions last 8 h, and every login, queue view, case view, review and status change is logged with time and actor. |
+| Messages and partner view | Patient–clinician messages are encrypted at rest and erased with his data. The partner link shows status only, expires in 30 days, can be revoked, and keeps its token in the URL fragment (not sent to servers or in Referer headers). Video rooms use unguessable names; production should use a self-hosted Jitsi in the UAE. |
 | No trail at home | No push notifications, SMS or email. Quick exit. Pages send `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`. |
 | Human oversight | Any referral at fertility-services level or above, any high signal tier and any red flag is held as `pending_review` until a clinician approves or changes it. Time-critical red flags show immediate instructions to the man first. |
 

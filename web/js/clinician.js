@@ -43,8 +43,15 @@ async function queue() {
   if (current) openCase(current);
 }
 
+function sla(due) {
+  if (!due) return "";
+  const h = (due - Date.now() / 1000) / 3600;
+  return h < 0 ? `<span class="pill lvl-emergency">overdue ${Math.round(-h)} h</span>` : `<span class="pill lvl-andrology">due in ${Math.round(h)} h</span>`;
+}
+
 function item(c) {
-  return `<div class="qitem ${c.id === current ? "on" : ""}" data-id="${c.id}">${lvl(c.final_level || c.level)} <span class="tag">${c.tier}</span>
+  return `<div class="qitem ${c.id === current ? "on" : ""}" data-id="${c.id}">${c.rapid ? '<span class="pill lvl-urgent_specialist">Rapid review</span> ' + (c.status === "pending_review" ? sla(c.due_at) : "") + "<br>" : ""}
+    ${lvl(c.final_level || c.level)} <span class="tag">${c.tier}</span>${c.unread ? ` <span class="tag">${c.unread} new message${c.unread > 1 ? "s" : ""}</span>` : ""}
     ${c.simulated ? '<span class="tag">simulated</span>' : ""}<div class="muted small">${esc(c.cohort)} · ${fmt(c.completed_at)} · ${c.status}</div></div>`;
 }
 
@@ -64,6 +71,9 @@ async function openCase(id) {
       <h3>Why (rules fired)</h3><ul>${t.reasons.map(x => `<li>${lvl(x.level)} ${esc(x.reason)} <span class="muted small">[${x.basis.join(", ")}]</span></li>`).join("")}</ul>
       ${t.tests.length ? `<h3>Suggested tests</h3><ul>${t.tests.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       ${t.parallel.length ? `<p>Parallel: ${t.parallel.map(p => `<span class="tag">${p}</span>`).join("")}</p>` : ""}
+      ${t.genomic && t.genomic.flag ? `<div class="banner info"><b>Genomic flag: offer genetic counselling</b><ul>${t.genomic.reasons.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+        ${t.genomic.tests.length ? `<p class="small">Suggested: ${t.genomic.tests.map(esc).join(" · ")}</p>` : ""}</div>` : ""}
+      ${t.rapid_review ? `<div class="banner alert small"><b>Rapid clinical review: ${t.sla_hours} h target.</b> ${t.rapid_reasons.map(esc).join("; ")}. Use secure messages or a video consult below.</div>` : ""}
       ${c.referral ? `<h3>Decision</h3>
         ${c.referral.status === "pending_review" ? `<div class="row">
           <button class="btn" id="approve">Approve ${LEVEL_NAME[t.level]}</button>
@@ -72,6 +82,16 @@ async function openCase(id) {
           <textarea id="note" rows="2" placeholder="Note for the record (encrypted)" style="margin-top:8px"></textarea>`
         : `<p>Status: <b>${c.referral.status}</b> · final ${lvl(c.referral.final_level || c.referral.level)} · reviewed ${fmt(c.referral.reviewed_at)} by ${esc(c.referral.reviewer || "—")}</p>
           <div class="row"><button class="chip" data-s="booked">Mark booked</button><button class="chip" data-s="attended">Mark attended</button><button class="chip" data-s="declined">Declined</button></div>`}` : ""}
+    </div>
+
+    <div class="grid2">
+      <div class="card"><h3>Secure messages</h3><div id="thread" class="small"></div>
+        <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="cmsg" placeholder="Message to patient (encrypted)"><button class="btn" id="csend">Send</button></div>
+        <p class="row" style="margin-top:10px"><button class="btn ghost" id="video">${c.referral && c.referral.video_url ? "Video room ready" : "Start video consult"}</button>
+        ${c.referral && c.referral.video_url ? `<a href="${esc(c.referral.video_url)}" target="_blank" rel="noopener noreferrer">${esc(c.referral.video_url)}</a>` : ""}</p></div>
+      <div class="card"><h3>Care navigation: handover package</h3>
+        <p class="muted small">Structured referral letter and FHIR document bundle for the receiving clinic. It lists results already available so tests are not repeated, the genomic flag, and the patient's preferences.</p>
+        <div class="row"><button class="btn ghost" id="hoView">View letter</button><button class="btn ghost" id="hoDl">Download FHIR bundle</button></div><div id="letter"></div></div>
     </div>
 
     <div class="grid2">
@@ -111,6 +131,26 @@ async function openCase(id) {
     $("#modify").onclick = () => decide("modify");
   }
   $$("[data-s]").forEach(b => b.onclick = async () => { await API.post(`/api/clinician/cases/${id}/status`, { status: b.dataset.s }); openCase(id); });
+  const thread = ms => $("#thread").innerHTML = ms.map(m => `<p><b>${m.sender === "user" ? "Patient" : "Clinician"}</b> <span class="muted">${fmt(m.ts)}</span><br>${esc(m.body)}</p>`).join("") || '<p class="muted">No messages yet.</p>';
+  thread(c.messages || []);
+  $("#csend").onclick = async () => {
+    const v = $("#cmsg").value.trim(); if (!v) return;
+    await API.post(`/api/clinician/cases/${id}/messages`, { body: v }); $("#cmsg").value = "";
+    thread(await API.get(`/api/clinician/cases/${id}/messages`));
+  };
+  $("#video").onclick = async () => { await API.post(`/api/clinician/cases/${id}/video`); openCase(id); };
+  const ho = () => API.get(`/api/clinician/cases/${id}/handover`);
+  $("#hoView").onclick = async () => {
+    const h = await ho();
+    $("#letter").innerHTML = `<div class="card" style="box-shadow:none"><p><b>To:</b> ${esc(h.letter.to)} · <b>Date:</b> ${h.letter.date}</p>
+      ${h.letter.sections.map(s => `<h3>${esc(s.title)}</h3><ul>${s.lines.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`).join("")}</div>`;
+  };
+  $("#hoDl").onclick = async () => {
+    const h = await ho();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(h.bundle, null, 1)], { type: "application/fhir+json" }));
+    a.download = `handover-${id.slice(0, 8)}.fhir.json`; a.click();
+  };
 }
 
 async function decide(decision) {

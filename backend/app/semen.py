@@ -54,7 +54,7 @@ def interpret_lab(r):
     if findings:
         notes.append("One result is not enough. Results vary a lot; any abnormal result is confirmed with a repeat test about 3 months later.")
     return {"source": "lab", "findings": findings, "normal": not findings, "notes": notes, "graph_inputs": inputs,
-            "reference": "WHO 2021 lower reference limits"}
+            "reference": "WHO 2021 lower reference limits", "values": {k: v for k, v in r.items() if v not in ("", None)}}
 
 
 def interpret_home_quantitative(r, kit="yo"):

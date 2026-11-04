@@ -165,6 +165,15 @@ function tests() {
       <div id="fields_lab" class="grid2 hidden">${field("volume_ml", "vol")}${field("concentration_m_per_ml", "conc")}${field("total_motility_pct", "motTot")}${field("progressive_motility_pct", "motProg")}${field("normal_forms_pct", "morph")}${field("ph", "ph")}${field("abstinence_days", "abst")}</div>
       <div class="row" style="margin-top:14px"><button class="btn ghost" id="saveT">${t("save")}</button><span id="ts" class="muted"></span></div>
     </div>
+    <div class="card"><h2>${t("labsTitle")}</h2><p class="muted small">${t("labsSub")}</p>
+      <div class="grid2">
+        <div><label class="q">${t("tT")}</label><div class="row" style="flex-wrap:nowrap"><input type="number" step="0.1" id="l_t"><select id="l_tu" style="width:110px"><option>nmol/L</option><option>ng/dL</option></select></div></div>
+        <div><label class="q">${t("tFSH")}</label><input type="number" step="0.1" id="l_fsh"></div>
+        <div><label class="q">${t("tLH")}</label><input type="number" step="0.1" id="l_lh"></div>
+        <div><label class="q">${t("tA1c")}</label><input type="number" step="0.1" id="l_a1c"></div>
+        <div><label class="q">${t("tVD")}</label><div class="row" style="flex-wrap:nowrap"><input type="number" step="0.1" id="l_vd"><select id="l_vdu" style="width:110px"><option>ng/mL</option><option>nmol/L</option></select></div></div>
+        <div><label class="q">${t("tDate")}</label><input type="text" id="l_date" placeholder="YYYY-MM-DD" dir="ltr"></div>
+      </div><div class="row" style="margin-top:14px"><button class="btn ghost" id="saveL">${t("saveLabs")}</button><span id="ls" class="muted small"></span></div></div>
     <details class="card"><summary><b>${t("collectTitle")}</b></summary>
       ${t("collect").map((x, i) => i === 0 ? `<p>${x}</p>` : `<p>• ${x}</p>`).join("")}<p class="muted small">${t("collectNote")}</p></details>
     <div class="row"><button class="btn ghost" id="b">${t("back")}</button><button class="btn" id="n">${t("finish")}</button></div>`;
@@ -183,6 +192,14 @@ function tests() {
       $("#ts").textContent = r.normal ? "✓" : r.findings.map(f => f[1]).join("; ");
     } catch (e) { $("#ts").textContent = e.message; }
   };
+  $("#saveL").onclick = async () => {
+    const n = id => $(id).value === "" ? null : Number($(id).value);
+    const body = { testosterone: n("#l_t"), testosterone_unit: $("#l_tu").value, fsh: n("#l_fsh"), lh: n("#l_lh"), hba1c: n("#l_a1c"),
+      vitamin_d: n("#l_vd"), vitamin_d_unit: $("#l_vdu").value, date: $("#l_date").value || null };
+    Object.keys(body).forEach(k => body[k] == null && delete body[k]);
+    try { const r = await API.post(`/api/assessments/${S.aid}/labs`, body); $("#ls").textContent = r.findings.length ? r.findings.map(f => f[1]).join("; ") : "✓"; }
+    catch (e) { $("#ls").textContent = e.message; }
+  };
   $("#b").onclick = devices;
   $("#n").onclick = submit;
 }
@@ -190,9 +207,9 @@ function tests() {
 async function submit() {
   if (!S.answers.age) { alert(t("errAge")); S.section = 0; return intake(); }
   await API.put(`/api/assessments/${S.aid}/answers`, { answers: S.answers });
-  S.result = await API.post(`/api/assessments/${S.aid}/submit?lang=${LANG}`);
+  await API.post(`/api/assessments/${S.aid}/submit?lang=${LANG}`);
   store.set("done", "1");
-  renderResult();
+  await showResult();
 }
 
 async function showResult() {
@@ -214,6 +231,14 @@ function renderResult() {
       ${r.referral && r.referral.status !== "pending_review" && r.referral.status !== "suggested" ? `<p class="small"><span class="tag">✓</span>${LANG === "ar" ? "راجع الطبيب ملخصك" : "A doctor has reviewed your summary"}</p>` : ""}
       ${r.parallel.length ? `<ul>${r.parallel.map(p => `<li>${t("parallel")[p] || p}</li>`).join("")}</ul>` : ""}
     </div>
+    ${r.rapid_review || r.clinician_review === "queued" || (r.referral && r.referral.video_url) ? `<div class="card ${r.rapid_review ? "next" : ""}" id="rapid">
+      ${r.rapid_review ? `<h2>${t("rapidTitle")}</h2><p class="small">${t("rapidSub")(r.sla_hours)}</p>` : ""}
+      ${r.review_consent === false || r.clinician_review === "available" ? `<p class="muted small">${t("reqReviewSub")}</p><button class="btn" id="reqRev">${t("reqReview")}</button>` : `
+        ${r.referral && r.referral.video_url ? `<div class="banner info"><b>${t("videoReady")}</b><br><a class="btn" style="margin-top:8px" href="${esc(r.referral.video_url)}" target="_blank" rel="noopener noreferrer">${t("joinVideo")}</a></div>` : ""}
+        <h3>${t("msgTitle")}</h3><div id="msgs" class="small"></div>
+        <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="msg" placeholder="${t("msgPh")}"><button class="btn" id="sendMsg">${t("send")}</button></div>`}
+    </div>` : r.clinician_review === "available" ? `<div class="card"><p class="muted small">${t("reqReviewSub")}</p><button class="btn" id="reqRev">${t("reqReview")}</button></div>` : ""}
+    ${r.genomic ? `<div class="card"><p class="small">${t("genomicNote")}</p></div>` : ""}
     ${r.plan.length ? `<div class="card"><h2>${t("planTitle")}</h2><p class="muted small">${t("planSub")}</p>
       ${r.plan.map(p => `<div class="plan-item"><b>${esc(p.action)}</b>
         <details class="why"><summary>${t("whyThis")}</summary>${pathText(p.why)}</details></div>`).join("")}</div>` : ""}
@@ -225,6 +250,7 @@ function renderResult() {
       <div class="card"><h3>${t("ifhasTitle")}</h3><p class="muted small">${t("ifhasSub")}</p><button class="btn ghost" id="fhir">${t("ifhasBtn")}</button></div>
       <div class="card"><h3>${t("shareTitle")}</h3><p class="muted small">${t("shareSub")}</p><div id="share"><button class="btn ghost" id="mk">${t("shareBtn")}</button></div></div>
     </div>
+    <div class="card"><h3>${t("partnerTitle")}</h3><p class="muted small">${t("partnerSub")}</p><div id="partner"><button class="btn ghost" id="mkP">${t("partnerBtn")}</button></div></div>
     <div class="card"><h3>${t("fbTitle")}</h3>${["fbTrust", "fbClarity", "fbComfort"].map(k => `<p class="small">${t(k)}</p><div class="stars" data-k="${k}">${[1, 2, 3, 4, 5].map(n => `<button data-n="${n}">${n}</button>`).join("")}</div>`).join("")}<p id="fbok" class="muted"></p></div>
     <div class="card"><h3>${t("delTitle")}</h3><p class="muted small">${t("delSub")}</p><button class="btn danger" id="del">${t("delBtn")}</button></div>
     <p><button class="btn ghost" id="again">${t("restart")}</button></p>`;
@@ -233,6 +259,24 @@ function renderResult() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(b, null, 1)], { type: "application/fhir+json" }));
     a.download = "prescreen-summary.fhir.json"; a.click();
+  };
+  if ($("#reqRev")) $("#reqRev").onclick = async () => { await API.post(`/api/assessments/${S.aid}/request-review`); showResult(); };
+  const loadMsgs = async () => {
+    if (!$("#msgs")) return;
+    const ms = await API.get(`/api/assessments/${S.aid}/messages`);
+    $("#msgs").innerHTML = ms.map(m => `<p><b>${m.sender === "user" ? t("you") : t("doctor")}:</b> ${esc(m.body)}</p>`).join("") || `<p class="muted">—</p>`;
+  };
+  loadMsgs();
+  if ($("#sendMsg")) $("#sendMsg").onclick = async () => {
+    const v = $("#msg").value.trim(); if (!v) return;
+    await API.post(`/api/assessments/${S.aid}/messages`, { body: v }); $("#msg").value = ""; loadMsgs();
+  };
+  $("#mkP").onclick = async () => {
+    const p = await API.post(`/api/assessments/${S.aid}/partner-link`);
+    const url = location.origin + p.path;
+    $("#partner").innerHTML = `<input type="text" readonly value="${url}" dir="ltr"><div class="row" style="margin-top:8px"><button class="btn ghost" id="cpP">${t("partnerCopy")}</button><button class="btn danger" id="rvP">${t("partnerRevoke")}</button></div>`;
+    $("#cpP").onclick = async () => { try { await navigator.clipboard.writeText(url); $("#cpP").textContent = t("partnerCopied"); } catch {} };
+    $("#rvP").onclick = async () => { await API.del(`/api/assessments/${S.aid}/partner-link`); $("#partner").innerHTML = `<p class="muted">✓</p>`; };
   };
   $("#mk").onclick = async () => {
     const s = await API.post(`/api/assessments/${S.aid}/share`);
