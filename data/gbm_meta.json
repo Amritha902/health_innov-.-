@@ -1,0 +1,116 @@
+{
+ "features": [
+  "age",
+  "bmi",
+  "smoker",
+  "alcohol_units",
+  "sleep_h",
+  "pss4",
+  "sitting_h",
+  "tight",
+  "hot_bath",
+  "aas",
+  "varicocele",
+  "cryptorchid",
+  "mumps",
+  "diabetes",
+  "stop_bang",
+  "vitd_low"
+ ],
+ "n_train": 15000,
+ "n_test": 5000,
+ "prevalence": 0.308,
+ "auc_test": 0.682,
+ "brier_test": 0.189,
+ "effects": {
+  "obese": {
+   "factor": 0.8,
+   "ref": "sermondade2013",
+   "note": "BMI >= 30"
+  },
+  "overweight": {
+   "factor": 0.93,
+   "ref": "sermondade2013",
+   "note": "BMI 25-30"
+  },
+  "smoker": {
+   "factor": 0.85,
+   "ref": "sharma2016",
+   "note": "daily smoking"
+  },
+  "alcohol_high": {
+   "factor": 0.67,
+   "ref": "jensen2014",
+   "note": ">= 25 units/week: ~33% lower concentration"
+  },
+  "alcohol_mod": {
+   "factor": 0.9,
+   "ref": "jensen2014",
+   "note": "5-24 units/week"
+  },
+  "short_sleep": {
+   "factor": 0.71,
+   "ref": "jensen2013",
+   "note": "high sleep disturbance: ~29% lower concentration"
+  },
+  "high_stress": {
+   "factor": 0.7,
+   "ref": "nordkap2016",
+   "note": "highest stress group: up to ~38% lower; 0.70 used conservatively"
+  },
+  "sedentary": {
+   "factor": 0.8,
+   "ref": "gaskins2015",
+   "note": "high TV/sitting time; 44% lower in the extreme group, 0.80 used conservatively"
+  },
+  "tight": {
+   "factor": 0.8,
+   "ref": "minguez2018",
+   "note": "boxers had 25% higher concentration -> tight = 1/1.25"
+  },
+  "hot_bath": {
+   "factor": 0.85,
+   "ref": "shefi2007",
+   "note": "regular wet heat; small study"
+  },
+  "aas": {
+   "factor": 0.1,
+   "ref": "christou2017",
+   "note": "current anabolic steroid use; frequent azoospermia"
+  },
+  "varicocele": {
+   "factor": 0.7,
+   "ref": "eau2024",
+   "note": "clinical varicocele"
+  },
+  "cryptorchid": {
+   "factor": 0.7,
+   "ref": "eau2024",
+   "note": "history of undescended testis"
+  },
+  "mumps": {
+   "factor": 0.8,
+   "ref": "masarani2006",
+   "note": "post-pubertal orchitis"
+  }
+ },
+ "prevalence_assumptions": {
+  "obese": 0.3,
+  "overweight": 0.38,
+  "smoker": 0.22,
+  "alcohol_mod": 0.08,
+  "alcohol_high": 0.02,
+  "short_sleep": 0.3,
+  "high_stress": 0.2,
+  "sedentary": 0.4,
+  "tight": 0.45,
+  "hot_bath": 0.1,
+  "aas": 0.03,
+  "varicocele": 0.12,
+  "cryptorchid": 0.02,
+  "mumps": 0.02,
+  "diabetes": 0.12,
+  "osa": 0.2,
+  "vitd_low": 0.45
+ }
+}
