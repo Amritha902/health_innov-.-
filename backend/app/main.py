@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import assessment, db, fabric, handover, ifhas, labs, questionnaire, security, semen, wearables
+from . import assessment, db, fabric, handover, ifhas, labs, obs_ar, questionnaire, security, semen, wearables
 from .knowledge import graph
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -633,7 +633,7 @@ def passive(aid: str, lang: str = "en", user=Depends(current_user)):
         findings.append({"node": node, "text": PASSIVE_TEXT.get(node, (g.nodes[node]["label"],) * 2)[i],
                          "label": g.nodes[node].get("label_ar" if i else "label"),
                          "evidence": path[0]["grade"] if path else None,
-                         "sources": [p["reason"] for p in why[node]]})
+                         "sources": [obs_ar.translate(p["reason"]) if i else p["reason"] for p in why[node]]})
     db.event(aid, "passive_preview", str(len(findings)))
     return {"summary": {k: w.get(k) for k in ("sleep_avg_h", "steps_avg", "social_jetlag_h", "spo2_low_nights", "night_glucose_high_pct", "late_caffeine_days_per_week", "resting_hr_avg", "hrv_sdnn_avg") if w.get(k) is not None},
             "findings": findings}

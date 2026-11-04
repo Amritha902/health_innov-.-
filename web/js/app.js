@@ -99,7 +99,7 @@ function passiveStart() {
       $("#pres").innerHTML = `<div class="card"><div class="row" style="gap:28px;align-items:flex-start">${stats}</div></div>
         <h2 style="margin-top:28px">${t("pwFound")}</h2>
         ${r.findings.length ? r.findings.map(f => `<div class="plan-item"><b>${esc(f.text)}</b>
-          <div class="why">${f.evidence ? gradeTag(f.evidence) + " " : ""}${LANG === "ar" ? (LANG === "ar" ? "من بيانات جهازك" : "") : f.sources.map(esc).join("; ")}</div></div>`).join("") : `<p>${t("pwNone")}</p>`}
+          <div class="why">${f.evidence ? gradeTag(f.evidence) + " " : ""}${f.sources.map(esc).join(LANG === "ar" ? "؛ " : "; ")}</div></div>`).join("") : `<p>${t("pwNone")}</p>`}
         <div class="card next" style="margin-top:24px"><p>${t("pwNext")}</p>
           <div class="row"><a class="btn" style="background:#eef0ec;color:#0f2a3a" href="chat.html">${t("pwTalk")}</a>
           <button class="btn ghost" style="color:#eef0ec;box-shadow:inset 0 0 0 1px #3b5361" id="pform">${t("pwForm")}</button></div></div>`;

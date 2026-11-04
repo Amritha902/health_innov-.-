@@ -376,3 +376,34 @@ def test_override_requires_reason(client):
     assert r["final_level"] == "primary_care"
     case = client.get(f"/api/clinician/cases/{aid}", headers=ch).json()
     assert case["review_note"].startswith("Stopped") and case["referral"]["final_level"] == "primary_care"
+
+
+def test_every_observation_has_arabic():
+    """Runs many different profiles and checks that every recorded observation has an Arabic version."""
+    import itertools
+    from app import features, labs, obs_ar, semen
+    profiles = [
+        {**BASE, "smoking": s, "waterpipe": w, "aas": a, "cannabis": "current", "meds": ["opioid", "ssri"], "fast_food": 2, "fruit_veg": 2, "fish": 2,
+         "late_meals": 5, "late_caffeine": 5, "shift": "night", "screen_h": 7, "screen_bed": 2, "underwear": "tight", "underwear_fabric": "synthetic",
+         "hot_bath": 2, "laptop_lap": 3, "phone_pocket": "yes", "heat_work": "yes", "chemicals_work": "yes", "near_traffic": "yes", "occupation": "industrial",
+         "vitd": v, "indoors": "yes", "mumps": "yes", "cryptorchidism": "yes", "varicocele": "yes", "infection": "untreated", "chemo": "yes", "fever": "yes",
+         "parents_related": "yes", "family_history": "yes", "diabetes": "pre", "age": 47, "waist_cm": 105, "audit1": 3, "audit2": 2, "audit3": 1,
+         "adam1": "yes", "adam7": "yes", "phq1": 2, "phq2": 2, "pss1": 4, "pss2": 0, "pss3": 0, "pss4": 4, "neck_cm": 44, "bp": "yes", "observed": "yes"}
+        for s, w, a, v in itertools.product(["daily", "occasional", "former"], ["daily"], ["current"], ["yes", "no"])]
+    wear = {"sleep_avg_h": 5.2, "steps_avg": 3100, "social_jetlag_h": 2.5, "spo2_low_nights": 4, "night_glucose_high_pct": 22, "glucose_cv": 38,
+            "late_caffeine_days_per_week": 5, "screen_daily_h": 6}
+    sem_sets = [semen.interpret_lab({"volume_ml": 1.0, "concentration_m_per_ml": 3, "progressive_motility_pct": 20, "normal_forms_pct": 2}),
+                semen.interpret_lab({"concentration_m_per_ml": 0}), semen.interpret_lab({"concentration_m_per_ml": 12}),
+                semen.interpret_home_quantitative({"concentration_m_per_ml": 9, "progressive_motility_pct": 20, "motile_conc_m_per_ml": 2}),
+                semen.interpret_home("spermcheck", "below")]
+    lb = labs.interpret({"testosterone": 6, "lh": 9, "fsh": 14, "hba1c": 6.8, "vitamin_d": 15})
+    missing = set()
+    for prof in profiles:
+        for sem in sem_sets:
+            for w in (wear, {}):
+                _, why, _ = features.build_inputs(prof, w, sem, lb)
+                for reasons in why.values():
+                    for r in reasons:
+                        if obs_ar.to_ar(r["reason"]) is None:
+                            missing.add(r["reason"])
+    assert not missing, missing

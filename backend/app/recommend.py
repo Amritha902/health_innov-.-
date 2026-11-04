@@ -7,7 +7,7 @@ Every finding is a card with five parts, so nothing is a black box:
   recommendation - one concrete step
   limitation   - what this observation can and cannot tell
 """
-from . import features
+from . import features, obs_ar
 from .knowledge import graph
 from .plan import ACTIONS
 
@@ -70,7 +70,8 @@ def cards(result, lang="en", min_value=0.3):
             limits.append(_lang(WEAK, lang).format(g=grade))
         out.append({
             "node": node, "label": label, "value": value, "contribution": attribution.get(node, 0),
-            "observation": "; ".join(p["reason"] for p in prov), "sources": sources,
+            "observation": "؛ ".join(obs_ar.translate(p["reason"]) for p in prov) if lang == "ar" else "; ".join(p["reason"] for p in prov),
+            "sources": sources,
             "relevance": relevance, "grade": grade,
             "evidence": [{"key": r, "text": g.refs[r]} for r in refs],
             "recommendation": _lang(rec, lang) if rec else None,
