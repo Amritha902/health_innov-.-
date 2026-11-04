@@ -540,3 +540,51 @@ def test_health_and_config(client):
     assert client.get("/api/health").json() == {"ok": True}
     cfg = client.get("/api/config").json()
     assert cfg["uae_hosted"] is False and cfg["video_enabled"] is False
+
+
+def test_care_connect(client):
+    import time as _t
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "aas": "current"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    st = client.get(f"/api/assessments/{aid}/care", headers=h).json()
+    assert st["stage"] == "awaiting_review"
+    assert client.post(f"/api/assessments/{aid}/appointment", headers=h, json={"provider_id": "skmc"}).status_code == 409
+    ch = clinician(client)
+    client.post(f"/api/clinician/cases/{aid}/review", headers=ch, json={"decision": "approve"})
+    st = client.get(f"/api/assessments/{aid}/care", headers=h).json()
+    assert st["stage"] == "choose" and st["providers"] and all(p["confirmed_at"] is None for p in st["providers"])
+    pid = st["providers"][0]["id"]
+    # a clinic that does not offer the service is refused; a bad phone is explained
+    assert client.post(f"/api/assessments/{aid}/appointment", headers=h, json={"provider_id": "nope"}).status_code == 400
+    r = client.post(f"/api/assessments/{aid}/appointment", headers=h, json={"provider_id": pid, "contact": "phone", "phone": "12"})
+    assert r.status_code == 400 and "digits" in r.json()["detail"]
+    r = client.post(f"/api/assessments/{aid}/appointment", headers=h, json={"provider_id": pid, "times": ["evening"], "days": ["weekend"]}).json()
+    assert r["stage"] == "requested" and r["appointment"]["share_code"]
+    assert client.post(f"/api/assessments/{aid}/appointment", headers=h, json={"provider_id": pid}).status_code == 409
+    q = client.get("/api/clinician/appointments", headers=ch).json()["appointments"]
+    appt = next(a for a in q if a["assessment_id"] == aid)
+    assert appt["times"] == ["evening"] and appt["phone"] is None
+    assert client.post(f"/api/clinician/appointments/{appt['id']}", headers=ch, json={"action": "confirm", "slot_at": _t.time() - 10}).status_code == 400
+    client.post(f"/api/clinician/appointments/{appt['id']}", headers=ch, json={"action": "confirm", "slot_at": _t.time() + 3 * 86400, "place_note": "Urology clinic, level 2"})
+    st = client.get(f"/api/assessments/{aid}/care", headers=h).json()
+    assert st["stage"] == "confirmed" and st["appointment"]["place_note"] == "Urology clinic, level 2"
+    ics = client.get(f"/api/assessments/{aid}/appointment.ics", headers=h)
+    assert ics.status_code == 200 and "SUMMARY:Appointment" in ics.text and "urolog" not in ics.text.split("LOCATION")[0].lower()
+    msgs = client.get(f"/api/assessments/{aid}/messages", headers=h).json()
+    assert any("confirmed" in (m.get("body") or "") for m in (msgs if isinstance(msgs, list) else msgs.get("messages", [])))
+    # missed: the referral reopens so he can choose again, and the reason is counted
+    client.post(f"/api/assessments/{aid}/appointment/outcome", headers=h, json={"outcome": "missed", "reason": "time"})
+    assert client.get(f"/api/assessments/{aid}/care", headers=h).json()["stage"] == "choose"
+    client.post(f"/api/assessments/{aid}/appointment", headers=h, json={"provider_id": pid})
+    a2 = next(a for a in client.get("/api/clinician/appointments", headers=ch).json()["appointments"] if a["assessment_id"] == aid)
+    client.post(f"/api/clinician/appointments/{a2['id']}", headers=ch, json={"action": "confirm", "slot_at": _t.time() + 86400})
+    client.post(f"/api/clinician/appointments/{a2['id']}", headers=ch, json={"action": "attended"})
+    assert client.get(f"/api/assessments/{aid}/care", headers=h).json()["stage"] == "attended"
+    m = client.get("/api/clinician/metrics", headers=ch).json()["care_connect"]
+    assert m["attended"] >= 1 and m["missed"] >= 1 and m["reasons"].get("time", 0) >= 1 and m["attendance_rate"] is not None
+    # directory: confirmation needs a note, and patients then see it
+    assert client.post(f"/api/clinician/providers/{pid}/confirm", headers=ch, json={"note": "ok"}).status_code == 422
+    client.post(f"/api/clinician/providers/{pid}/confirm", headers=ch, json={"note": "Called reception; urology accepts referrals"})
+    p = next(x for x in client.get("/api/providers").json()["providers"] if x["id"] == pid)
+    assert p["confirmed_at"] and "reception" in p["confirm_note"]

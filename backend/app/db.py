@@ -42,6 +42,12 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
   key_hash TEXT PRIMARY KEY, state BLOB NOT NULL, updated_at REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS feedback (
   assessment_id TEXT PRIMARY KEY, trust INTEGER, clarity INTEGER, comfort INTEGER, ts REAL);
+CREATE TABLE IF NOT EXISTS providers (
+  id TEXT PRIMARY KEY, name_en TEXT NOT NULL, name_ar TEXT NOT NULL, area TEXT, area_ar TEXT, sector TEXT, kinds TEXT NOT NULL,
+  website TEXT, active INTEGER DEFAULT 1, added_at REAL, added_by TEXT, confirmed_at REAL, confirmed_by TEXT, confirm_note TEXT);
+CREATE TABLE IF NOT EXISTS appointments (
+  id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, provider_id TEXT NOT NULL, status TEXT NOT NULL, prefs BLOB,
+  created_at REAL NOT NULL, updated_at REAL, slot_at REAL, place_note BLOB, decided_by TEXT, confirmed_at REAL, reason TEXT, share_code TEXT);
 """
 
 

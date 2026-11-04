@@ -496,10 +496,12 @@ async function renderJourney() {
       ${c.tests_have.length ? `<h3>${t("jHave")}</h3><p class="small">${c.tests_have.map(x => `${esc(x.name)}${x.value ? ": " + esc(x.value) : ""}`).join("<br>")}</p>` : ""}
       <h3>${LANG === "ar" ? "المسار" : "Timeline"}</h3>
       <ol class="small" style="padding-inline-start:18px">${c.steps.map(s => `<li>${t("jSteps")[s.step] || s.step}${s.at ? ` <span class="muted">${d(s.at)}</span>` : ""}${s.barrier ? ` (${t("barrier")[s.barrier] || s.barrier})` : ""}</li>`).join("")}</ol>
+      ${c.referral_status && c.level !== "self_care" ? `<p><button class="btn" data-care="${c.id}">${c.referral_status === "booked" ? cc("see") : cc("open")}</button></p>` : ""}
       ${c.referral_status && !["attended", "tests_done", "followed_up", "declined"].includes(c.referral_status) ? `<div class="row" data-aid="${c.id}">
         <button class="chip" data-p="booked">${t("jBooked")}</button><button class="chip" data-p="attended">${t("jWent")}</button><button class="chip" data-p="tests_done">${t("jTests")}</button>
         <button class="chip" data-p="declined">${t("jCouldnt")}</button></div>` : ""}
     </div>`).join("")}`;
+  $$("[data-care]").forEach(b => b.onclick = () => renderCare(b.dataset.care));
   $$("[data-aid] [data-p]").forEach(b => b.onclick = async () => {
     const aid = b.parentElement.dataset.aid;
     if (b.dataset.p === "declined") {
@@ -588,5 +590,109 @@ function renderRestore() {
       renderTop(); $("#rcMsg").textContent = pv("restored");
       setTimeout(() => renderJourney(), 600);
     } catch (e) { $("#rcMsg").textContent = e.message; }
+  };
+}
+
+
+const CC = {
+  en: { title: "Book your visit", open: "Choose a clinic", see: "Your appointment",
+    awaiting: "A doctor is reviewing your summary. Once they approve it you can choose a clinic here.",
+    emergency: "This needs emergency care now. Go to the nearest emergency department or call 998.",
+    notNeeded: "No clinic visit is needed for this check.",
+    pick: "Choose where you'd like to go", pickSub: "These clinics offer the care your referral needs. We don't show availability: the coordinator agrees a time with the clinic and tells you.",
+    listed: "Listed from the clinic's own website. Not yet confirmed by the Riaya team.", confirmed: d => `Confirmed by the Riaya team on ${d}`,
+    public: "Public", private: "Private", site: "Official website",
+    when: "When suits you?", morning: "Morning", afternoon: "Afternoon", evening: "Evening", weekday: "Weekdays", weekend: "Weekends",
+    how: "How should we reach you?", inApp: "Riaya messages only", phone: "A phone call", phonePh: "Mobile number",
+    share: "Send my summary to the clinic with a one-time code (valid 14 days)", note: "Anything the clinic should know? (optional)",
+    send: "Send request", choose: "Choose a clinic first.",
+    requested: n => `Request sent to ${n}. We'll message you here when the clinic confirms a time.`, code: "Your handover code for the clinic",
+    cancel: "Cancel request", cancelAppt: "Cancel appointment", cancelConfirm: "Cancel this request?",
+    confirmedT: "Your appointment is confirmed", cal: "Add to calendar", calNote: "The calendar entry only says “Appointment”.",
+    went: "I went", missed: "I couldn't go", why: "What got in the way? You can choose another time straight after.",
+    attended: "You've been seen. Thank you for following through.", back: "Back to my journey",
+    reasons: { forgot: "Forgot", clinic_cancelled: "Clinic cancelled", felt_better: "Felt better" } },
+  ar: { title: "احجز زيارتك", open: "اختر عيادة", see: "موعدك",
+    awaiting: "يراجع طبيب ملخصك الآن. بعد موافقته يمكنك اختيار عيادة من هنا.",
+    emergency: "هذا يحتاج إلى رعاية طارئة الآن. توجّه إلى أقرب قسم طوارئ أو اتصل بالرقم ٩٩٨.",
+    notNeeded: "لا حاجة لزيارة عيادة في هذا الفحص.",
+    pick: "اختر المكان الذي تفضّله", pickSub: "تقدّم هذه العيادات الرعاية التي تحتاجها إحالتك. لا نعرض مواعيد متاحة: يتفق المنسّق على وقت مع العيادة ثم يبلغك.",
+    listed: "مأخوذة من الموقع الرسمي للعيادة. لم يؤكدها فريق رعاية بعد.", confirmed: d => `أكدها فريق رعاية في ${d}`,
+    public: "حكومي", private: "خاص", site: "الموقع الرسمي",
+    when: "ما الوقت المناسب لك؟", morning: "صباحاً", afternoon: "بعد الظهر", evening: "مساءً", weekday: "أيام الأسبوع", weekend: "عطلة نهاية الأسبوع",
+    how: "كيف نتواصل معك؟", inApp: "رسائل رعاية فقط", phone: "اتصال هاتفي", phonePh: "رقم الجوال",
+    share: "أرسل ملخصي إلى العيادة برمز يُستخدم مرة واحدة (صالح ١٤ يوماً)", note: "هل هناك ما يجب أن تعرفه العيادة؟ (اختياري)",
+    send: "أرسل الطلب", choose: "اختر عيادة أولاً.",
+    requested: n => `أُرسل الطلب إلى ${n}. سنراسلك هنا عندما تؤكد العيادة الوقت.`, code: "رمز التسليم الخاص بك للعيادة",
+    cancel: "ألغِ الطلب", cancelAppt: "ألغِ الموعد", cancelConfirm: "هل تريد إلغاء هذا الطلب؟",
+    confirmedT: "تم تأكيد موعدك", cal: "أضف إلى التقويم", calNote: "يظهر في التقويم بعنوان «موعد» فقط.",
+    went: "ذهبت", missed: "لم أتمكن من الذهاب", why: "ما الذي منعك؟ يمكنك اختيار وقت آخر مباشرة بعد ذلك.",
+    attended: "تمت معاينتك. شكراً لمتابعتك.", back: "العودة إلى مساري",
+    reasons: { forgot: "نسيت", clinic_cancelled: "ألغت العيادة", felt_better: "تحسّنت" } },
+};
+const cc = k => CC[LANG][k];
+
+async function renderCare(aid) {
+  rerender = () => renderCare(aid);
+  setWide(false);
+  const s = await API.get(`/api/assessments/${aid}/care?lang=${LANG}`);
+  const d = ts => new Date(ts * 1000).toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const dt = ts => new Date(ts * 1000).toLocaleString(LANG === "ar" ? "ar-AE" : "en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  const back = `<p><button class="btn ghost" id="ccBack">${cc("back")}</button></p>`;
+  const a = s.appointment;
+  let body = "";
+  if (s.stage === "awaiting_review") body = `<div class="card"><p>${cc("awaiting")}</p></div>`;
+  else if (s.stage === "emergency") body = `<div class="card" style="border-inline-start:4px solid var(--danger,#b3261e)"><p><b>${cc("emergency")}</b></p></div>`;
+  else if (s.stage === "not_needed" || s.stage === "no_referral") body = `<div class="card"><p>${cc("notNeeded")}</p></div>`;
+  else if (s.stage === "requested") body = `<div class="card"><p>${esc(cc("requested")(a.provider.name))}</p>
+      ${a.share_code ? `<p class="small">${cc("code")}</p><div class="code" dir="ltr">${esc(a.share_code)}</div>` : ""}
+      <p><button class="btn ghost" id="ccCancel">${cc("cancel")}</button></p></div>`;
+  else if (s.stage === "confirmed") body = `<div class="card" style="border-inline-start:4px solid var(--saffron)"><h2>${cc("confirmedT")}</h2>
+      <p style="font-size:1.15em"><b>${esc(dt(a.slot_at))}</b></p><p>${esc(a.provider.name)}${a.place_note ? `<br><span class="muted">${esc(a.place_note)}</span>` : ""}</p>
+      ${a.share_code ? `<p class="small">${cc("code")}: <span class="code" dir="ltr">${esc(a.share_code)}</span></p>` : ""}
+      <p class="row"><button class="btn" id="ccCal">${cc("cal")}</button><span class="muted small">${cc("calNote")}</span></p>
+      <div class="row" id="ccOut"><button class="chip" data-o="attended">${cc("went")}</button><button class="chip" data-o="missed">${cc("missed")}</button>
+      <button class="chip" id="ccCancel">${cc("cancelAppt")}</button></div></div>`;
+  else if (s.stage === "attended") body = `<div class="card"><p>${cc("attended")}</p><p class="muted small">${esc(a.provider.name)}</p></div>`;
+  else {
+    const chip = (g, v) => `<span class="opt" data-g="${g}" data-v="${v}">${cc(v)}</span>`;
+    body = `<h2>${cc("pick")}</h2><p class="muted small">${cc("pickSub")}</p>
+      <div id="ccList">${s.providers.map(p => `<label class="card check" style="cursor:pointer;display:flex;gap:12px;align-items:flex-start">
+        <input type="radio" name="prov" value="${esc(p.id)}" style="margin-top:6px"><div><b>${esc(p.name)}</b>
+        <div class="small">${esc(p.area)} · ${cc(p.sector)}</div>
+        <div class="small ${p.confirmed_at ? "" : "muted"}">${p.confirmed_at ? esc(cc("confirmed")(d(p.confirmed_at))) + (p.confirm_note ? ` — ${esc(p.confirm_note)}` : "") : cc("listed")}</div>
+        <a class="small" href="${esc(p.website)}" target="_blank" rel="noopener noreferrer">${cc("site")}</a></div></label>`).join("")}</div>
+      <div class="card"><h3>${cc("when")}</h3><div class="opts">${["morning", "afternoon", "evening"].map(v => chip("times", v)).join("")}</div>
+        <div class="opts" style="margin-top:8px">${["weekday", "weekend"].map(v => chip("days", v)).join("")}</div>
+        <h3>${cc("how")}</h3><div class="opts"><span class="opt on" data-c="messages">${cc("inApp")}</span><span class="opt" data-c="phone">${cc("phone")}</span></div>
+        <input type="tel" id="ccPhone" dir="ltr" placeholder="${cc("phonePh")}" style="display:none;margin-top:8px" autocomplete="tel">
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="ccShare" checked><div>${cc("share")}</div></label>
+        <textarea id="ccNote" rows="2" maxlength="500" placeholder="${cc("note")}"></textarea>
+        <p class="row"><button class="btn" id="ccSend">${cc("send")}</button><span class="small" id="ccMsg" role="status"></span></p></div>`;
+  }
+  view().innerHTML = `<h1>${cc("title")}</h1>${body}${back}`;
+  $("#ccBack").onclick = () => renderJourney();
+  if ($("#ccCancel")) $("#ccCancel").onclick = async () => { if (!confirm(cc("cancelConfirm"))) return; await API.del(`/api/assessments/${aid}/appointment`); renderCare(aid); };
+  if ($("#ccCal")) $("#ccCal").onclick = async () => {
+    const r = await fetch(`/api/assessments/${aid}/appointment.ics`, { headers: { Authorization: `Bearer ${API.token}` } });
+    const el = document.createElement("a"); el.href = URL.createObjectURL(await r.blob()); el.download = "appointment.ics"; el.click();
+  };
+  $$("#ccOut [data-o]").forEach(b => b.onclick = async () => {
+    if (b.dataset.o === "attended") { await API.post(`/api/assessments/${aid}/appointment/outcome`, { outcome: "attended" }); return renderCare(aid); }
+    $("#ccOut").innerHTML = `<p class="small">${cc("why")}</p><div class="opts">${s.missed_reasons.map(x => `<span class="opt" data-r="${x}">${esc((cc("reasons")[x]) || t("barrier")[x] || x)}</span>`).join("")}</div>`;
+    $$("#ccOut [data-r]").forEach(o => o.onclick = async () => { await API.post(`/api/assessments/${aid}/appointment/outcome`, { outcome: "missed", reason: o.dataset.r }); renderCare(aid); });
+  });
+  $$("[data-g]").forEach(o => o.onclick = () => o.classList.toggle("on"));
+  $$("[data-c]").forEach(o => o.onclick = () => { $$("[data-c]").forEach(x => x.classList.toggle("on", x === o)); $("#ccPhone").style.display = o.dataset.c === "phone" ? "block" : "none"; });
+  if ($("#ccSend")) $("#ccSend").onclick = async () => {
+    const pick = document.querySelector("input[name=prov]:checked");
+    if (!pick) { $("#ccMsg").textContent = cc("choose"); return; }
+    const sel = g => $$(`[data-g="${g}"].on`).map(x => x.dataset.v);
+    const contact = $("[data-c].on").dataset.c;
+    try {
+      await API.post(`/api/assessments/${aid}/appointment`, { provider_id: pick.value, times: sel("times"), days: sel("days"), contact,
+        phone: contact === "phone" ? $("#ccPhone").value : null, share_summary: $("#ccShare").checked, note: $("#ccNote").value || null });
+      renderCare(aid);
+    } catch (e) { $("#ccMsg").textContent = e.message; }
   };
 }

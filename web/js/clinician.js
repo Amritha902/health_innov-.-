@@ -24,10 +24,10 @@ async function start() {
   $("#logout").onclick = async () => { try { await API.post("/api/clinician/logout"); } catch {} sessionStorage.removeItem("ctoken"); location.reload(); };
   GRAPH = GRAPH || await API.get("/api/graph");
   $("#view").innerHTML = `<div class="tabs row" style="margin-bottom:12px">
-    <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
+    <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="appointments">Appointments</button><button class="chip" data-t="clinics">Clinics</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
     <button class="chip" data-t="audit">Access log</button><a class="chip" href="insights.html">Programme dashboard</a><span class="spacer"></span>
     <input type="text" id="code" placeholder="Share code" style="width:160px"><button class="chip" id="open">Open</button></div><div id="tab"></div>`;
-  $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, metrics, audit })[b.dataset.t](); });
+  $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, appointments, clinics, metrics, audit })[b.dataset.t](); });
   $("#open").onclick = async () => {
     try { const r = await API.post(`/api/clinician/share/${$("#code").value.trim()}`); await queue(); openCase(r.assessment_id); }
     catch (e) { alert(e.message); }
@@ -238,6 +238,11 @@ async function metrics() {
       ${m.user_feedback ? stat(m.user_feedback.t.toFixed(1) + " / 5", "user trust (n=" + m.user_feedback.n + ")") : ""}</div>
     <div class="grid2"><div class="card"><h3>By age band</h3>${grp(m.by_age)}</div><div class="card"><h3>By background</h3>${grp(m.by_background)}</div></div>
     <div class="card"><h3>Referral levels</h3>${Object.entries(m.levels).map(([k, v]) => `${lvl(k)} ${v}`).join(" ")}</div>
+    ${m.care_connect ? `<h2>Care Connect</h2><div class="row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+      ${stat(m.care_connect.requests, "clinic requests")}${stat(m.care_connect.booking_rate != null ? Math.round(m.care_connect.booking_rate * 100) + "%" : null, "confirmed with a clinic")}
+      ${stat(m.care_connect.median_hours_to_confirm, "median hours to confirm")}${stat(m.care_connect.attendance_rate != null ? Math.round(m.care_connect.attendance_rate * 100) + "%" : null, "attended when confirmed")}
+      ${stat(m.care_connect.declined_by_clinic, "declined by clinic")}</div>
+      ${Object.keys(m.care_connect.reasons).length ? `<div class="card"><h3>Why visits did not happen</h3><table>${Object.entries(m.care_connect.reasons).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<tr><td>${esc(MISSED_TEXT[k] || DECLINE_TEXT[k] || k)}</td><td>${v}</td></tr>`).join("")}</table></div>` : ""}` : ""}
     <p class="muted small">Includes simulated cases from the validation run where present (marked "simulated" in the queue).</p>`;
 }
 
@@ -258,3 +263,79 @@ async function audit() {
 
 API.token = sessionStorage.getItem("ctoken");
 API.token ? start().catch(login) : login();
+
+const DECLINE_TEXT = { not_accepting: "Clinic not accepting referrals", wrong_service: "Wrong service for this referral", no_slots: "No slots in a reasonable time", insurance: "Insurance not accepted", other: "Other" };
+const MISSED_TEXT = { cost: "Cost", time: "No time", embarrassment: "Felt uncomfortable", distance: "Too far", waiting_list: "Long wait", partner: "Family reasons",
+  not_needed: "Decided not needed", other: "Other", forgot: "Forgot", clinic_cancelled: "Clinic cancelled", felt_better: "Felt better" };
+
+async function appointments() {
+  const q = await API.get("/api/clinician/appointments");
+  const when = ts => new Date(ts * 1000).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const ago = ts => { const h = (Date.now() / 1000 - ts) / 3600; return h < 24 ? `${Math.round(h)} h ago` : `${Math.round(h / 24)} d ago`; };
+  const req = q.appointments.filter(a => a.status === "requested"), conf = q.appointments.filter(a => a.status === "confirmed");
+  const prefs = a => [a.times.join(", "), a.days.join(", ")].filter(Boolean).join("; ") || "Any time";
+  $("#tab").innerHTML = `<h2>New requests <span class="muted">(${req.length})</span></h2>
+    ${req.length ? "" : `<p class="muted">No requests waiting. When a patient chooses a clinic after approval, it appears here.</p>`}
+    ${req.map(a => `<div class="card" data-id="${a.id}"><div class="row"><b>${esc(a.provider ? a.provider.name_en : "?")}</b><span class="spacer"></span><span class="muted small">${ago(a.created_at)}</span></div>
+      <p class="small">Level: ${esc(a.level || "")}<br>Prefers: ${esc(prefs(a))}<br>Contact: ${a.contact === "phone" ? `phone <span dir="ltr">${esc(a.phone || "")}</span>` : "Riaya messages"}
+      ${a.share_code ? `<br>Handover code <span class="code" dir="ltr">${esc(a.share_code)}</span>` : ""}</p>
+      ${a.note ? `<p class="small">“${esc(a.note)}”</p>` : ""}
+      <p class="small muted">Agree a time with the clinic, then confirm it here. He gets a message and a discreet calendar entry.</p>
+      <div class="row"><label class="small">Date and time <input type="datetime-local" class="slot"></label>
+        <input type="text" class="place" maxlength="200" placeholder="Where to go inside the clinic (optional)" style="flex:1;min-width:200px">
+        <button class="btn conf">Confirm</button></div>
+      <div class="row" style="margin-top:8px"><select class="why"><option value="">Decline because…</option>${q.decline_reasons.map(r => `<option value="${r}">${DECLINE_TEXT[r]}</option>`).join("")}</select>
+        <button class="btn ghost dec">Decline</button><button class="chip openc">Open case</button><span class="small msg" role="status"></span></div></div>`).join("")}
+    <h2 style="margin-top:20px">Confirmed <span class="muted">(${conf.length})</span></h2>
+    ${conf.map(a => `<div class="card" data-id="${a.id}"><div class="row"><b>${esc(when(a.slot_at))}</b><span class="spacer"></span>${esc(a.provider ? a.provider.name_en : "")}</div>
+      <div class="row" style="margin-top:8px"><button class="chip att">Attended</button>
+      <select class="mwhy"><option value="">Did not attend because…</option>${q.missed_reasons.map(r => `<option value="${r}">${MISSED_TEXT[r] || r}</option>`).join("")}</select>
+      <button class="chip mis">Mark missed</button><button class="chip openc">Open case</button><span class="small msg" role="status"></span></div></div>`).join("")}`;
+  const act = async (card, body) => {
+    try { await API.post(`/api/clinician/appointments/${card.dataset.id}`, body); appointments(); }
+    catch (e) { card.querySelector(".msg").textContent = e.message; }
+  };
+  const byId = id => q.appointments.find(a => a.id === id);
+  $$("#tab [data-id]").forEach(card => {
+    const $c = s => card.querySelector(s);
+    if ($c(".conf")) $c(".conf").onclick = () => {
+      const v = $c(".slot").value;
+      if (!v) { $c(".msg").textContent = "Choose the date and time the clinic agreed."; return; }
+      act(card, { action: "confirm", slot_at: new Date(v).getTime() / 1000, place_note: $c(".place").value || null });
+    };
+    if ($c(".dec")) $c(".dec").onclick = () => { if ($c(".why").value) act(card, { action: "decline", reason: $c(".why").value }); else $c(".msg").textContent = "Choose a reason so he understands why."; };
+    if ($c(".att")) $c(".att").onclick = () => act(card, { action: "attended" });
+    if ($c(".mis")) $c(".mis").onclick = () => act(card, { action: "missed", reason: $c(".mwhy").value || "other" });
+    $c(".openc").onclick = async () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x.dataset.t === "queue")); await queue(); openCase(byId(card.dataset.id).assessment_id); };
+  });
+}
+
+async function clinics() {
+  const r = await API.get("/api/clinician/providers");
+  const d = ts => new Date(ts * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  $("#tab").innerHTML = `<p class="muted">Patients see only what is listed here. Confirm a clinic after speaking to it; your note and the date are shown to patients. Never add phone numbers or availability you have not checked.</p>
+    ${r.providers.map(p => `<div class="card" data-p="${esc(p.id)}" style="${p.active ? "" : "opacity:.6"}"><div class="row"><b>${esc(p.name_en)}</b><span class="muted" dir="rtl">${esc(p.name_ar)}</span><span class="spacer"></span>
+      <span class="small">${esc(p.sector)}: ${esc(p.kinds.join(", "))}</span></div>
+      <p class="small">${esc(p.area)}<br><a href="${esc(p.website)}" target="_blank" rel="noopener noreferrer">${esc(p.website)}</a></p>
+      <p class="small">${p.confirmed_at ? `Confirmed ${d(p.confirmed_at)} by ${esc(p.confirmed_by)}: ${esc(p.confirm_note)}` : `<span class="muted">Not yet confirmed</span>`}</p>
+      <div class="row"><input type="text" class="note" maxlength="300" placeholder="How you confirmed it, e.g. called urology reception on 4 Nov" style="flex:1;min-width:220px">
+        <button class="btn ghost cf">Confirm</button><button class="chip tg">${p.active ? "Hide from patients" : "Show to patients"}</button><span class="small msg" role="status"></span></div></div>`).join("")}
+    <div class="card"><h2>Add a clinic</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+      <input id="pNameEn" placeholder="Name in English"><input id="pNameAr" dir="rtl" placeholder="الاسم بالعربية"><input id="pArea" placeholder="Area">
+      <input id="pAreaAr" dir="rtl" placeholder="المنطقة"><select id="pSector"><option value="public">Public</option><option value="private">Private</option></select>
+      <input id="pWeb" dir="ltr" placeholder="https://official-website"></div>
+      <p class="row small"><label><input type="checkbox" value="urology" class="pk"> Urology / andrology</label><label><input type="checkbox" value="primary" class="pk"> Primary care</label><label><input type="checkbox" value="emergency" class="pk"> Emergency</label></p>
+      <p class="row"><button class="btn" id="pAdd">Add clinic</button><span class="small" id="pMsg" role="status"></span></p></div>`;
+  $$("#tab [data-p]").forEach(card => {
+    const id = card.dataset.p, p = r.providers.find(x => x.id === id), $c = s => card.querySelector(s);
+    $c(".cf").onclick = async () => { try { await API.post(`/api/clinician/providers/${id}/confirm`, { note: $c(".note").value }); clinics(); } catch (e) { $c(".msg").textContent = e.message; } };
+    $c(".tg").onclick = async () => { await API.post(`/api/clinician/providers/${id}/active?active=${!p.active}`); clinics(); };
+  });
+  $("#pAdd").onclick = async () => {
+    try {
+      await API.post("/api/clinician/providers", { name_en: $("#pNameEn").value, name_ar: $("#pNameAr").value, area: $("#pArea").value, area_ar: $("#pAreaAr").value,
+        sector: $("#pSector").value, website: $("#pWeb").value, kinds: $$(".pk:checked").map(x => x.value) });
+      clinics();
+    } catch (e) { $("#pMsg").textContent = e.message; }
+  };
+}

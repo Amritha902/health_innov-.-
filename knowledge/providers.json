@@ -1,0 +1,15 @@
+{
+  "_note": "Starting directory. Only facts published by each provider are listed: name, area, sector and official website. No phone numbers, hours or availability are stored. Every entry starts unconfirmed; a coordinator confirms it after speaking to the clinic, and the confirmation note and date are shown to patients.",
+  "providers": [
+    {"id": "skmc", "name_en": "Sheikh Khalifa Medical City", "name_ar": "مدينة الشيخ خليفة الطبية", "area": "Abu Dhabi city", "area_ar": "مدينة أبوظبي",
+     "sector": "public", "kinds": ["urology", "emergency"], "website": "https://www.seha.ae"},
+    {"id": "ssmc", "name_en": "Sheikh Shakhbout Medical City", "name_ar": "مدينة الشيخ شخبوط الطبية", "area": "Abu Dhabi city", "area_ar": "مدينة أبوظبي",
+     "sector": "public", "kinds": ["urology", "emergency"], "website": "https://www.ssmc.ae"},
+    {"id": "tawam", "name_en": "Tawam Hospital", "name_ar": "مستشفى توام", "area": "Al Ain", "area_ar": "العين",
+     "sector": "public", "kinds": ["urology", "emergency"], "website": "https://www.seha.ae"},
+    {"id": "ccad", "name_en": "Cleveland Clinic Abu Dhabi", "name_ar": "كليفلاند كلينك أبوظبي", "area": "Al Maryah Island, Abu Dhabi", "area_ar": "جزيرة الماريه، أبوظبي",
+     "sector": "private", "kinds": ["urology"], "website": "https://www.clevelandclinicabudhabi.ae"},
+    {"id": "ahs", "name_en": "SEHA primary healthcare centres", "name_ar": "مراكز الرعاية الصحية الأولية التابعة لصحة", "area": "Abu Dhabi, Al Ain and Al Dhafra", "area_ar": "أبوظبي والعين والظفرة",
+     "sector": "public", "kinds": ["primary"], "website": "https://www.seha.ae"}
+  ]
+}

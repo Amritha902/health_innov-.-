@@ -2,7 +2,7 @@
 
 **A private front door to men's reproductive health, built for Abu Dhabi.**
 
-Men in Abu Dhabi usually reach fertility care late: after months of trying, and after their wife has already been assessed. Riaya lets a man check the everyday things that affect his reproductive health privately, in Arabic or English, by voice, chat, his watch or WhatsApp. It explains every signal with published evidence and sends him to the right level of care, with a licensed doctor approving every specialist referral and a structured hand-off into the IFHAS screening programme.
+Men in Abu Dhabi usually reach fertility care late: after months of trying, and after their wife has already been assessed. Riaya lets a man check the everyday things that affect his reproductive health privately, in Arabic or English, by voice, chat, his watch or WhatsApp. It explains every signal with published evidence. It then sends him to the right level of care, with a licensed doctor approving every specialist referral. The coordinator books the clinic visit and it is followed through to attendance. It is a screening tool, not a diagnosis.
 
 ![Riaya demo](docs/media/riaya-demo.gif)
 
@@ -12,88 +12,144 @@ Men in Abu Dhabi usually reach fertility care late: after months of trying, and 
 
 ![How Riaya works](docs/media/flow.png)
 
-| What a man sees | What a doctor sees |
-|---|---|
-| <img src="docs/media/screen-landing.png" width="300"> | <img src="docs/media/screen-clinician.png" width="560"> |
+1. **He checks privately.** Voice, chat, form, watch data or WhatsApp. He gives no name, phone number or ID.
+2. **Riaya explains.** Every signal links to graded, cited evidence. Missing data is shown as unknown, never as normal.
+3. **A doctor approves.** Guideline rules suggest a level of care, and a licensed doctor approves or changes it. A reason is required for any change.
+4. **Care Connect books the visit.** He picks a clinic, and a coordinator agrees a time with that clinic. He gets a discreet calendar entry, and his summary goes to the clinic with a one-time code.
+5. **The loop closes.** Attendance, missed visits and the reasons for them feed the clinician and programme dashboards.
 
-## Ways in
+## Features
 
-| Path | What happens | Where in the code |
+Every screenshot below is from the running app, captured by `demo/screenshots.js` against a fresh database (`node demo/screenshots.js <out-dir>` with the server running).
+
+### For the man
+
+| Feature | What it does | Screenshot |
 |---|---|---|
-| Talk it through | 14 questions by voice or chat. Understands Gulf Arabic, standard Arabic and English replies, including spoken numbers. Hands-free mode reads each question aloud and listens for the answer. | `web/chat.html`, `web/js/chat.js`, `web/js/nlu.js`, `web/js/voice.js` |
-| Start with his watch | Reads an Apple Health export (or glucose sensor / daily CSV) and explains what sleep, activity, oxygen and glucose already show, before any question. A sample export is included. | `backend/app/wearables.py`, `/api/assessments/{id}/passive` |
-| Detailed check | Full intake with validated instruments, blood tests, home or lab sperm test. | `web/js/app.js`, `backend/app/questionnaire.py` |
-| WhatsApp | The same check over WhatsApp via Twilio. The phone number is never stored, only a salted hash, and "delete" erases everything. A WhatsApp-style demo runs without a phone. | `backend/app/conversation.py`, `/api/whatsapp/twilio`, `web/whatsapp.html` |
+| **Arabic-first landing** | Arabic by default with one-tap English, and wording chosen with cultural and religious sensitivity in mind ([docs/CULTURAL_DESIGN.md](docs/CULTURAL_DESIGN.md)). A banner warns that the public demo is not UAE-hosted. | <img src="docs/media/screens/landing-ar.jpg" width="220"> |
+| **Plain-language consent** | What is kept, what is never done, and a separate choice for each purpose: doctor review, device data and research. | <img src="docs/media/screens/consent.jpg" width="220"> |
+| **Voice and chat check** | 14 questions by voice or text. Understands Gulf Arabic, standard Arabic and English, including spoken numbers. Uses the phone's own speech recognition, or Whisper running on the phone, so audio never leaves it. | <img src="docs/media/screens/voice-chat.jpg" width="220"> |
+| **Detailed check** | Validated instruments: PSS-4, PHQ-2, AUDIT-C, STOP-Bang, ADAM. Each field shows its unit and plausible range, and errors are written in plain language. | <img src="docs/media/screens/intake.jpg" width="220"> |
+| **Watch and sensor data** | Apple Health export, Dexcom or Libre glucose CSV, or a daily CSV. Only a summary is kept, compared with his own baseline. | <img src="docs/media/screens/devices.jpg" width="220"> |
+| **Lab report reader** | Upload a semen-analysis or hormone report (PDF, text or photo). OCR runs on the phone. Each value comes with its unit, reference range and date, and nothing is saved until he confirms it. | <img src="docs/media/screens/tests.jpg" width="220"> |
+| **Private summary** | The next step, with an explanation for each finding: observation, why it matters, evidence grade, sources, one recommendation and its limits. Also shows contradiction checks and a what-if simulator. | <img src="docs/media/screens/result.jpg" width="220"> |
+| **My journey** | Every check, what changed since last time, tests already done, a timeline of steps, and a follow-up reminder. | <img src="docs/media/screens/journey.jpg" width="220"> |
+| **Care Connect: choose a clinic** | Opens only after a doctor approves. Shows only clinics that offer the care his referral needs, using public facts from each clinic's own website. A clinic counts as confirmed only once the team has spoken to it. No availability is invented. He states his preferred times and how to reach him. | <img src="docs/media/screens/care-choose.jpg" width="220"> |
+| **Care Connect: request sent** | Gives him a one-time handover code for the clinic, valid 14 days. He can cancel at any time. | <img src="docs/media/screens/care-requested.jpg" width="220"> |
+| **Care Connect: confirmed** | Shows the date, place and handover code. The calendar file says only "Appointment", so nothing private appears on a lock screen. "I went" or "I couldn't go" with a reason; a missed visit reopens the choice. | <img src="docs/media/screens/care-confirmed.jpg" width="220"> |
+| **Privacy and sharing** | Change or withdraw consent at any time. Withdrawing doctor review removes his checks from every doctor's view. Also: a recovery code for a new phone, download everything, delete everything. | <img src="docs/media/screens/privacy.jpg" width="220"> |
+| **Partner link** | A link only he can create. It shows his wife that he has taken the step, never his answers or results. It expires in 30 days and he can revoke it. | <img src="docs/media/screens/partner.jpg" width="220"> |
+| **WhatsApp** | The same check over WhatsApp through Twilio. The number is stored only as a salted hash, and sending "delete" erases everything. A demo runs without a phone. | <img src="docs/media/screens/whatsapp.jpg" width="220"> |
+| **Clothing check** | Type or photograph a care label to see how much of the garment may warm the groin, with the strongest evidence for each fibre. | <img src="docs/media/screens/fabric.jpg" width="220"> |
 
-**Voice.** Listening uses the phone's own speech recognition (iPhone Safari, Android Chrome, Samsung Internet, Edge). In private mode, or where the browser has none (e.g. Firefox), it runs **Whisper**, OpenAI's open-source speech model, inside the browser with transformers.js, so the audio never leaves the phone. Questions are read aloud with the phone's own voices, and he chooses the voice.
+### For doctors and coordinators
 
-## New in 2.0
+| Feature | What it does | Screenshot |
+|---|---|---|
+| **Secure sign-in** | PBKDF2 passwords. Lockout after 5 failed attempts. Sessions last 8 hours, or end after 30 minutes idle. No default account in deployment. | <img src="docs/media/screens/clinician-login.jpg" width="360"> |
+| **Review workspace** | A priority queue with timers for when each review is due. Three panels: patient, clinical review, actions. An evidence explorer for every factor. Approve, change or reject; a reason is required for any change. Also encrypted messages and voice notes both ways. | <img src="docs/media/screens/clinician-case.jpg" width="360"> |
+| **Appointment requests** | Each request shows the clinic, level of care, his preferred times, how to contact him and the handover code. Confirm the time agreed with the clinic, or decline with a reason, which tells him to choose again. | <img src="docs/media/screens/coordinator-requests.jpg" width="360"> |
+| **Confirmed visits** | Mark each confirmed visit as attended, or as missed with a reason. | <img src="docs/media/screens/coordinator-confirmed.jpg" width="360"> |
+| **Clinic directory** | Add a clinic with only its public facts. Confirm it with a note saying how it was checked, which patients then see. Hide a clinic from patients. | <img src="docs/media/screens/coordinator-clinics.jpg" width="360"> |
+| **Outcomes and fairness** | Completion, time to review and time to evaluation. Results by age and background. Care Connect booking and attendance rates, and why visits did not happen. | <img src="docs/media/screens/clinician-metrics.jpg" width="360"> |
+| **Access log** | Every sign-in, failure, lockout, case view and decision. Doctors can change their password, which ends their other sessions. | <img src="docs/media/screens/clinician-audit.jpg" width="360"> |
+| **Programme dashboard** | Aggregated and k-anonymised (no group smaller than 5) for ADPHC and DoH: funnel, time to care, population drivers, barriers and fairness. Simulated cases are excluded by default. | <img src="docs/media/screens/programme-dashboard.jpg" width="360"> |
+| **Evidence map** | 69 factors and 148 cause-and-effect links, each graded A–D and cited, from 95 sources. The server refuses to start if any link lacks a source. | <img src="docs/media/screens/evidence-map.jpg" width="360"> |
 
-- **Lab report reader:** upload a semen-analysis or hormone report (PDF, text, or a photo read on the phone). Riaya extracts each value with its unit, reference range and date, flags implausible values, and saves nothing until he confirms. The file is never kept.
-- **Explained findings:** every finding has an observation, why it matters (a pathway in the evidence map), the evidence grade and sources, one recommendation, and its limitations. Unknown data is shown as unknown, never as normal.
-- **Contradiction checks:** for example, reported sleep against the watch, "no diabetes" against an HbA1c of 6.9%, or low testosterone with suppressed LH when no steroid use was reported. Scoring follows one fixed rule (a measured value is used over a self-report), and every disagreement is still shown to him and the clinician for a gentle conversation. None is silently hidden.
-- **His own baseline:** his last week compared with his earlier weeks, not just population cut-offs.
-- **What-if simulator:** an educational scenario showing how much of today's signal comes from the habits he chooses to change. It is not a fertility prediction.
-- **My Reproductive Health Journey:** every check, tests already done, the next step, what changed since last time, and a follow-up reminder. He can report "booked", "went" or "couldn't go", and why.
-- **Clinician workspace:** three panels (patient, clinical review, actions), with an evidence explorer on every factor, test reconciliation, a reason required for any override, and closed-loop referral tracking.
-- **Programme dashboard:** an aggregated, k-anonymised dashboard for ADPHC and DoH covering the funnel, time to care, population drivers, barriers and fairness.
+### Behind the screens
 
-## What is inside
+| Capability | Detail | Code |
+|---|---|---|
+| Triage | Ordered guideline rules (WHO 2021, AUA/ASRM 2021, EAU 2024, ASRM 2020). Red flags override everything. Genomic flag (karyotype, AZF, CFTR). Rapid review targeted at 24–48 h. | `backend/app/triage.py` |
+| Explainability | Shapley attribution over the evidence map; a gradient-boosting model with SHAP; a logistic model on real data (UCI Fertility, n=100) as a second opinion. | `backend/app/assessment.py`, `ml.py` |
+| Contradiction checks | Reported sleep against the watch, "no diabetes" against HbA1c, low testosterone with suppressed LH when no steroid use was reported. Each is shown, never silently hidden. | `backend/app/recommend.py` |
+| IFHAS and FHIR hand-off | FHIR R4 bundle: QuestionnaireResponse, Observations with LOINC codes, ServiceRequest. | `backend/app/ifhas.py`, `handover.py` |
+| Care Connect | Clinic directory, appointment requests, coordinator decisions, a discreet `.ics` calendar file, and attendance with reasons. | `backend/app/care.py` |
+| Privacy controls | Encryption at rest (Fernet). Separate consent per purpose. One-time share codes. Device links expire after 180 days idle. Hide button and auto-blur in the app switcher. | `backend/app/security.py`, `web/js/common.js` |
+| Safe uploads | Files are read in chunks with size limits, and over-compressed archives are refused. | `backend/app/main.py`, `wearables.py` |
+| Installable app | PWA with an offline app shell. Health data is never cached. | `web/manifest.webmanifest`, `web/sw.js` |
 
-- **Evidence map** (`knowledge/graph.json`): 69 factors, 148 cause-and-effect links, each graded A–D and cited (95 sources, listed with links in [docs/REFERENCES.md](docs/REFERENCES.md)). It also holds 23 measurable signals with thresholds and 8 red flags. The server refuses to start if any link lacks a source.
-- **Explainability**: Shapley attribution over the evidence map; a gradient-boosting model with a SHAP waterfall; a logistic model trained on real data (UCI Fertility, n=100) as a second opinion for doctors.
-- **Triage**: ordered guideline rules (WHO 2021, AUA/ASRM 2021, EAU 2024, ASRM 2020). Red flags override everything. Genomic flag (karyotype, AZF, CFTR). Rapid review with a 24–48 h target.
-- **Doctor console**: priority queue with SLA timers, explanations, approve or change the referral, encrypted messages, **voice notes both ways**, video room, FHIR handover letter, outcome and fairness dashboard, access log.
-- **Privacy**: no name, phone or ID; separate consent per purpose; encryption at rest; hide button and auto-blur in the app switcher; one-time share codes; a partner link that shows only status; delete and export everything. Installable as an app (PWA) with no app store.
-- **IFHAS hand-off**: FHIR R4 bundle (questionnaire response, observations with LOINC codes, service request).
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.11, FastAPI 0.162, Uvicorn, Pydantic validation with plain-language errors |
+| Database | PostgreSQL 16 via psycopg 3 in deployment; SQLite for local runs. One adapter with automatic migrations (`backend/app/db.py`) |
+| Security | `cryptography` (Fernet) for encryption at rest, PBKDF2-SHA256 passwords, Content-Security-Policy, HSTS |
+| Machine learning | scikit-learn 1.9 (gradient boosting, logistic regression), SHAP 0.54, NumPy, pandas, joblib |
+| Documents | pypdf for lab-report PDFs, tesseract.js 5 (Arabic and English OCR, on the phone) |
+| Voice | Web Speech API, with Whisper through transformers.js 3 running in the browser as a fallback |
+| Frontend | Plain HTML, CSS and JavaScript (no build step). Self-hosted Noto Kufi Arabic and IBM Plex fonts. RTL-first layout |
+| Messaging | Twilio WhatsApp webhook with signature validation |
+| Interoperability | FHIR R4, LOINC |
+| Testing and CI | pytest (30 end-to-end API tests), Playwright for UI checks, GitHub Actions on SQLite and Postgres |
+| Deployment | Render blueprint (`render.yaml`) with managed Postgres and generated secrets |
 
 ## Results
 
 From [validation/REPORT.md](validation/REPORT.md):
-- **Rule check, not accuracy:** on 26 scenarios written by the team from WHO, AUA/ASRM and EAU guidance, the triage rules gave the expected next step 26 times, with 0 under-triage. This shows the rules behave as designed. Clinical accuracy needs independent review by UAE clinicians, which is the first pilot step.
-- Real data (UCI Fertility, n=100): AUC 0.62–0.69.
-- Simulated cohort of 20,000 men with literature effect sizes: AUC 0.68, with calibration and subgroup fairness tables.
-- The untrained evidence map alone ranks outcomes with AUC 0.66, which shows the map and the literature agree.
+- **Rule check, not accuracy:** the team wrote 26 scenarios from WHO, AUA/ASRM and EAU guidance. The triage rules gave the expected next step in all 26, with no case sent to a lower level of care than expected. This shows the rules behave as designed. Clinical accuracy needs independent review by UAE clinicians, which is the first pilot step.
+- **Real data** (UCI Fertility, n=100): AUC 0.62–0.69.
+- **Simulated cohort** of 20,000 men using effect sizes from the literature: AUC 0.68, with calibration and subgroup fairness tables.
+- **Evidence map alone**, with no training, ranks outcomes with AUC 0.66, which shows the map and the literature agree.
 
-The report also states the limits plainly: the test cases were written by the same team, the cohort is simulated, and the real dataset is small.
+The report states the limits plainly:
+- the test cases were written by the same team;
+- the cohort is simulated;
+- the real dataset is small.
 
 ## Run it
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn app.main:app --app-dir backend --port 8000
 ```
-
-Open http://localhost:8000. To enable the local-only demo clinician account, set `RIAYA_ENABLE_DEMO_CLINICIAN=true` before starting the server; the demo login is `clinician` / `demo-clinician`. Never enable this on a public deployment. Also `/chat.html`, `/whatsapp.html`, `/graph.html`, `/fabric.html`, and API docs at `/api/docs`.
 
 ```bash
-.venv/bin/python -m pytest -q                               # 25 end-to-end tests (SQLite; set DATABASE_URL to run on Postgres)
-.venv/bin/python validation/run_validation.py --seed-demo   # validation report + simulated cases for the console
+RIAYA_ENABLE_DEMO_CLINICIAN=true .venv/bin/uvicorn app.main:app --app-dir backend --port 8000
 ```
 
-**Doctor sign-in security:** passwords are stored with PBKDF2-SHA256 (310,000 rounds). Five failed attempts in 15 minutes lock the account and source address, and a failed login gives the same response whether or not the username exists. Sessions end after 8 hours, or after 30 minutes without activity, and signing out ends the session on the server. Changing the password ends every other session. A deployed doctor account is only created if its password is strong: at least 12 varied characters, not containing the username, and not a common password. Every sign-in, failure, lockout, case view and decision is in the access log. Patients never have accounts; a random device token links their data, and their token cannot reach any doctor endpoint.
+Open http://localhost:8000. The doctor console is at `/clinician.html`. With `RIAYA_ENABLE_DEMO_CLINICIAN=true` the demo login is `clinician` / `demo-clinician`; never enable it on a public deployment. The API docs are at `/api/docs`.
 
-**Deploy:** `render.yaml` deploys the app to Render with a managed Postgres database and a generated encryption key and phone-hash salt, without seeding simulated cases or creating a default clinician account. Render asks you for `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD` when you apply the blueprint. Before any real pilot, configure a managed Postgres database (`DATABASE_URL`), a strong unique `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD`, and a securely generated `RIAYA_DATA_KEY`. The free Render filesystem is ephemeral; do not rely on local SQLite for durable records. Do not collect real patient data until UAE hosting, health-data compliance, clinical governance and security review are confirmed. Optional settings:
+```bash
+.venv/bin/python -m pytest -q
+```
+
+```bash
+.venv/bin/python validation/run_validation.py --seed-demo
+```
+
+The first runs the end-to-end tests; set `DATABASE_URL` to run them on Postgres. The second writes the validation report and adds simulated cases to the console.
+
+**Deploy:** `render.yaml` deploys to Render with:
+
+- a managed Postgres database;
+- a generated encryption key and phone-hash salt;
+- a health check at `/api/health`.
+
+It does not create a default clinician account; Render asks for `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD`. Do not collect real patient data until all of these are confirmed:
+
+- UAE hosting (`RIAYA_UAE_HOSTED=true` only then);
+- health-data compliance;
+- clinical governance;
+- security review.
+
+Settings, backups and restores are covered in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 | Setting | Purpose |
 |---|---|
 | `DATABASE_URL` | Postgres instead of SQLite |
-| `RIAYA_DATA_KEY` | Encryption key |
-| `RIAYA_CLINICIAN_USER` | Doctor console username (required to provision an account) |
-| `RIAYA_CLINICIAN_PASSWORD` | Doctor console password (required to provision an account) |
-| `RIAYA_ENABLE_DEMO_CLINICIAN` | Local demo only; explicitly enables the non-production demo credentials |
-| `TWILIO_AUTH_TOKEN` | Verify WhatsApp webhooks |
-| `RIAYA_WHATSAPP_NUMBER` | Show a QR code on the WhatsApp page |
-| `RIAYA_PUBLIC_URL` | Public address used in links |
-| `RIAYA_VIDEO_BASE` | Self-hosted video server |
+| `RIAYA_DATA_KEY` | Encryption key; keep it apart from backups |
+| `RIAYA_CLINICIAN_USER`, `RIAYA_CLINICIAN_PASSWORD` | First doctor account (only created if the password is strong) |
+| `RIAYA_UAE_HOSTED` | `true` only on a UAE deployment approved for health data; removes the demo banner |
+| `RIAYA_VIDEO_BASE` | Self-hosted video service; video stays off without it |
+| `TWILIO_AUTH_TOKEN`, `RIAYA_WHATSAPP_NUMBER`, `RIAYA_PUBLIC_URL` | WhatsApp channel |
 
 ## Docs
 
 - [docs/RESEARCH_VERIFICATION.md](docs/RESEARCH_VERIFICATION.md): every claim checked, including corrections to the brief
-- [docs/REFERENCES.md](docs/REFERENCES.md): all 95 sources with links and what each one supports
+- [docs/REFERENCES.md](docs/REFERENCES.md): all 95 sources, with links and what each one supports
 - [docs/CULTURAL_DESIGN.md](docs/CULTURAL_DESIGN.md): each cultural and religious barrier, and how the product handles it
 - [docs/SYSTEM_LAYERS.md](docs/SYSTEM_LAYERS.md): the gaps Abu Dhabi has named, mapped to working features
 - [docs/PRIVACY_AND_REGULATION.md](docs/PRIVACY_AND_REGULATION.md): UAE rules and the controls in the code
 - [docs/OPERATIONS.md](docs/OPERATIONS.md): hosting, configuration, backup and restore, retention
 - [docs/IFHAS_AND_ROADMAP.md](docs/IFHAS_AND_ROADMAP.md): integration, referral levels, pilot roadmap
-- `demo/`: the scripts that record and assemble the demo video from the live app (narration by Kokoro, an open-source voice model)

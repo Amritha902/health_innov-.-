@@ -38,6 +38,8 @@ async def read_limited(file, limit):
 
 def startup():
     db.init()
+    from . import care
+    care.seed()
     problems = graph().validate()
     if problems:
         raise RuntimeError("Knowledge graph invalid: " + "; ".join(problems[:5]))
@@ -521,6 +523,7 @@ def delete_me(user=Depends(current_user)):
             c.execute("DELETE FROM feedback WHERE assessment_id=?", (aid,))
             c.execute("DELETE FROM messages WHERE assessment_id=?", (aid,))
             c.execute("DELETE FROM partner_links WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM appointments WHERE assessment_id=?", (aid,))
             c.execute("UPDATE events SET assessment_id=NULL WHERE assessment_id=?", (aid,))
         c.execute("DELETE FROM assessments WHERE user_id=?", (user,))
         c.execute("DELETE FROM consents WHERE user_id=?", (user,))
@@ -758,6 +761,7 @@ def metrics(include_simulated: bool = False, clin=Depends(current_clinician)):
         "by_age": by(lambda x: (x["cohort"] or "unknown|").split("|")[0]),
         "by_background": by(lambda x: (x["cohort"] or "|unknown").split("|")[1]),
         "user_feedback": dict(fb) if fb and fb["n"] else None,
+        "care_connect": care_metrics(),
     }
 
 
@@ -1338,6 +1342,12 @@ def conversation_demo(body: DemoIn, request: Request):
     """Same engine as WhatsApp, for the in-app WhatsApp-style demo."""
     base = PUBLIC_URL or str(request.base_url).rstrip("/")
     return {"replies": converse("demo:" + security.token_hash(body.session), body.text, "demo", base)}
+
+
+# ------------------------------------------------------------------ Care Connect
+from .care import router as care_router, metrics as care_metrics  # noqa: E402
+
+app.include_router(care_router)
 
 
 # ------------------------------------------------------------------ static web app
