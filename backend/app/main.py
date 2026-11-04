@@ -25,12 +25,16 @@ def startup():
     problems = graph().validate()
     if problems:
         raise RuntimeError("Knowledge graph invalid: " + "; ".join(problems[:5]))
-    user = os.environ.get("RIAYA_CLINICIAN_USER", "clinician")
-    pw = os.environ.get("RIAYA_CLINICIAN_PASSWORD", "demo-clinician")
-    with db.tx() as c:
-        if not c.execute("SELECT 1 FROM clinicians WHERE username=?", (user,)).fetchone():
-            salt, h = security.hash_password(pw)
-            c.execute("INSERT INTO clinicians VALUES (?,?,?,?)", (user, salt, h, "Duty clinician"))
+    # Never create a publicly guessable clinician account in a deployed environment.
+    # Demo credentials are available only when explicitly enabled for local demonstrations.
+    demo_mode = os.environ.get("RIAYA_ENABLE_DEMO_CLINICIAN", "").lower() == "true"
+    user = os.environ.get("RIAYA_CLINICIAN_USER") or ("clinician" if demo_mode else None)
+    pw = os.environ.get("RIAYA_CLINICIAN_PASSWORD") or ("demo-clinician" if demo_mode else None)
+    if user and pw:
+        with db.tx() as c:
+            if not c.execute("SELECT 1 FROM clinicians WHERE username=?", (user,)).fetchone():
+                salt, h = security.hash_password(pw)
+                c.execute("INSERT INTO clinicians VALUES (?,?,?,?)", (user, salt, h, "Duty clinician"))
 
 
 @asynccontextmanager
