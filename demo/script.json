@@ -80,8 +80,8 @@
   "id": "proof",
   "kind": "card",
   "head": "12 days, not 12 months",
-  "sub": "Simulated pilot: median time from check to clinician. 26 of 26 clinical scenarios routed safely.",
-  "vo": "In our simulated pilot, men reached a clinician in about twelve days instead of more than a year. Twenty six of twenty six clinical scenarios were routed safely, and it is built to plug straight into Abu Dhabi's IFHAS screening programme."
+  "sub": "Simulated pilot: median time from check to clinician. Triage rules matched guideline expectations in 26 of 26 scenarios; independent clinical validation is next.",
+  "vo": "In our simulated pilot, men reached a clinician in about twelve days instead of more than a year. The triage rules matched guideline expectations in all twenty six test scenarios, and independent clinical validation in Abu Dhabi is our next step."
  },
  {
   "id": "end",

@@ -27,6 +27,17 @@ Men in Abu Dhabi usually reach fertility care late: after months of trying, and 
 
 **Voice.** Listening uses the phone's own speech recognition (iPhone Safari, Android Chrome, Samsung Internet, Edge). In private mode, or where the browser has none (e.g. Firefox), it runs **Whisper**, OpenAI's open-source speech model, inside the browser with transformers.js, so the audio never leaves the phone. Questions are read aloud with the phone's own voices, and he chooses the voice.
 
+## New in 2.0
+
+- **Lab report reader:** upload a semen-analysis or hormone report (PDF, text, or a photo read on the phone). Riaya extracts each value with its unit, reference range and date, flags implausible values, and saves nothing until he confirms. The file is never kept.
+- **Explained findings:** every finding has an observation, why it matters (a pathway in the evidence map), the evidence grade and sources, one recommendation, and its limitations. Unknown data is shown as unknown, never as normal.
+- **Contradiction checks:** for example, reported sleep against the watch, "no diabetes" against an HbA1c of 6.9%, or low testosterone with suppressed LH when no steroid use was reported. These are flagged for a gentle conversation, never auto-resolved.
+- **His own baseline:** his last week compared with his earlier weeks, not just population cut-offs.
+- **What-if simulator:** an educational scenario showing how much of today's signal comes from the habits he chooses to change. It is not a fertility prediction.
+- **My Reproductive Health Journey:** every check, tests already done, the next step, what changed since last time, and a follow-up reminder. He can report "booked", "went" or "couldn't go", and why.
+- **Clinician workspace:** three panels (patient, clinical review, actions), with an evidence explorer on every factor, test reconciliation, a reason required for any override, and closed-loop referral tracking.
+- **Programme dashboard:** an aggregated, k-anonymised dashboard for ADPHC and DoH covering the funnel, time to care, population drivers, barriers and fairness.
+
 ## What is inside
 
 - **Evidence map** (`knowledge/graph.json`): 69 factors, 148 cause-and-effect links, each graded A–D and cited (95 sources, listed with links in [docs/REFERENCES.md](docs/REFERENCES.md)). It also holds 23 measurable signals with thresholds and 8 red flags. The server refuses to start if any link lacks a source.
@@ -39,7 +50,7 @@ Men in Abu Dhabi usually reach fertility care late: after months of trying, and 
 ## Results
 
 From [validation/REPORT.md](validation/REPORT.md):
-- Triage on 26 clinical scenarios: 26/26 correct, **0 under-triage**.
+- **Rule check, not accuracy:** on 26 scenarios written by the team from WHO, AUA/ASRM and EAU guidance, the triage rules gave the expected next step 26 times, with 0 under-triage. This shows the rules behave as designed. Clinical accuracy needs independent review by UAE clinicians, which is the first pilot step.
 - Real data (UCI Fertility, n=100): AUC 0.62–0.69.
 - Simulated cohort of 20,000 men with literature effect sizes: AUC 0.68, with calibration and subgroup fairness tables.
 - The untrained evidence map alone ranks outcomes with AUC 0.66, which shows the map and the literature agree.

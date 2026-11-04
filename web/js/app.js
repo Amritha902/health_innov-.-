@@ -4,6 +4,7 @@ const setWide = on => $("#view").className = on ? "hero-wrap" : "wrap";
 
 async function boot() {
   applyLang();
+  if (store.get("big")) document.documentElement.classList.add("big");
   const claim = new URLSearchParams(location.hash.slice(1));
   if (claim.get("t") && claim.get("a")) {
     store.set("token", claim.get("t")); store.set("aid", claim.get("a")); store.set("done", "1"); store.del("draft");
@@ -22,8 +23,12 @@ async function boot() {
 function renderTop() {
   $("#top").innerHTML = `<div class="brand"><i></i>${t("app")}</div>
     <div class="spacer"></div>
+    ${API.token ? `<button class="chip" id="jBtn">${t("jOpen")}</button>` : ""}
+    <button class="chip" id="bigBtn" aria-pressed="${document.documentElement.classList.contains("big")}">${t("bigger")}</button>
     <a class="chip" href="graph.html">${LANG === "ar" ? "خريطة الأدلة" : "Evidence map"}</a>
     <button class="chip" id="langBtn">${t("lang")}</button>`;
+  if ($("#jBtn")) $("#jBtn").onclick = () => renderJourney();
+  $("#bigBtn").onclick = () => { document.documentElement.classList.toggle("big"); store.set("big", document.documentElement.classList.contains("big") ? "1" : ""); };
   $("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); applyLang(); renderTop(); rerender(); };
 }
 let rerender = welcome;
@@ -229,6 +234,9 @@ function tests() {
   setWide(false);
   const field = (id, key) => `<div><label class="q">${t(key)}</label><input type="number" step="0.1" data-k="${id}"></div>`;
   view().innerHTML = `<h1>${t("testTitle")}</h1><p class="muted">${t("testSub")}</p>
+    <div class="card next"><h2>${t("lrTitle")}</h2><p class="small">${t("lrSub")}</p>
+      <div class="row"><label class="btn" style="background:#eef0ec;color:#0f2a3a" for="lrf">${t("lrPick")}</label><input type="file" id="lrf" accept=".pdf,.txt,image/*" class="hidden">
+      <button class="btn ghost" style="color:#eef0ec;box-shadow:inset 0 0 0 1px #3b5361" id="lrs">${t("lrSample")}</button></div><div id="lrout" class="small"></div></div>
     <div class="card">
       <div class="opts" id="kind">
         <span class="opt on" data-k="home_quant">${t("tHomeQ")}</span><span class="opt" data-k="home_simple">${t("tHomeS")}</span><span class="opt" data-k="lab">${t("tLab")}</span>
@@ -266,6 +274,36 @@ function tests() {
       $("#ts").textContent = r.normal ? "✓" : r.findings.map(f => f[1]).join("; ");
     } catch (e) { $("#ts").textContent = e.message; }
   };
+  const showReport = r => {
+    if (!r.values.length) { $("#lrout").innerHTML = `<p>${t("lrNone")}</p>`; return; }
+    $("#lrout").innerHTML = `<table style="margin-top:14px;color:inherit"><tr><th style="color:#a9bac4">${t("lrField")}</th><th style="color:#a9bac4">${t("lrValue")}</th><th style="color:#a9bac4">${t("lrFrom")}</th></tr>
+      ${r.values.map(v => `<tr><td>${t("lrNames")[v.field] || v.field}${v.confidence === "check" ? ` <span class="tag">${t("lrCheck")}</span>` : ""}</td>
+        <td><input type="number" step="0.01" data-f="${v.field}" data-t="${v.target}" value="${v.value}" style="width:96px;padding:6px 8px"> ${v.unit}</td>
+        <td style="color:#a9bac4;font-size:12px" dir="ltr">${esc(v.line)}</td></tr>`).join("")}</table>
+      <p><button class="btn" style="background:#eef0ec;color:#0f2a3a" id="lrok">${t("lrConfirm")}</button></p>`;
+    $("#lrok").onclick = async () => {
+      const semen = { source: "lab" }, labs = { date: r.date || null };
+      $$("#lrout input[data-f]").forEach(i => { if (i.value !== "") (i.dataset.t === "semen" ? semen : labs)[i.dataset.f] = Number(i.value); });
+      if (Object.keys(semen).length > 1) await API.post(`/api/assessments/${S.aid}/semen`, semen);
+      if (Object.keys(labs).some(k => k !== "date" && labs[k] != null)) { Object.keys(labs).forEach(k => labs[k] == null && delete labs[k]); await API.post(`/api/assessments/${S.aid}/labs`, labs); }
+      $("#lrout").innerHTML = `<p>✓ ${t("lrSaved")}</p>`;
+    };
+  };
+  const readReport = async file => {
+    $("#lrout").textContent = t("lrReading");
+    try {
+      let r;
+      if (file.type.startsWith("image/")) {
+        if (!window.Tesseract) await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+        const { data } = await Tesseract.recognize(file, "eng");
+        const f = new FormData(); f.append("text", data.text);
+        r = await API.req("POST", `/api/assessments/${S.aid}/lab-report`, f, true);
+      } else r = await API.upload(`/api/assessments/${S.aid}/lab-report`, file);
+      showReport(r);
+    } catch (e) { $("#lrout").textContent = e.message; }
+  };
+  $("#lrf").onchange = e => e.target.files[0] && readReport(e.target.files[0]);
+  $("#lrs").onclick = async () => readReport(new File([await (await fetch("samples/sample_lab_report.pdf")).blob()], "report.pdf", { type: "application/pdf" }));
   $("#saveL").onclick = async () => {
     const n = id => $(id).value === "" ? null : Number($(id).value);
     const body = { testosterone: n("#l_t"), testosterone_unit: $("#l_tu").value, fsh: n("#l_fsh"), lh: n("#l_lh"), hba1c: n("#l_a1c"),
@@ -315,6 +353,8 @@ function renderResult() {
         <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="msg" placeholder="${t("msgPh")}"><button class="btn" id="sendMsg">${t("send")}</button></div>`}
     </div>` : r.clinician_review === "available" ? `<div class="card"><p class="muted small">${t("reqReviewSub")}</p><button class="btn" id="reqRev">${t("reqReview")}</button></div>` : ""}
     ${r.genomic ? `<div class="card"><p class="small">${t("genomicNote")}</p></div>` : ""}
+    <div class="row" style="margin:-4px 0 8px"><button class="chip" id="readBtn">🔊 ${t("readAloud")}</button><button class="chip" id="jBtn2">${t("jOpen")}</button></div>
+    <div id="explain"></div>
     ${r.plan.length ? `<div class="card"><h2>${t("planTitle")}</h2><p class="muted small">${t("planSub")}</p>
       ${r.plan.map(p => `<div class="plan-item"><b>${esc(p.action)}</b>
         <details class="why"><summary>${t("whyThis")}</summary>${pathText(p.why)}</details></div>`).join("")}</div>` : ""}
@@ -330,6 +370,10 @@ function renderResult() {
     <div class="card"><h3>${t("fbTitle")}</h3>${["fbTrust", "fbClarity", "fbComfort"].map(k => `<p class="small">${t(k)}</p><div class="stars" data-k="${k}">${[1, 2, 3, 4, 5].map(n => `<button data-n="${n}">${n}</button>`).join("")}</div>`).join("")}<p id="fbok" class="muted"></p></div>
     <div class="card"><h3>${t("delTitle")}</h3><p class="muted small">${t("delSub")}</p><button class="btn danger" id="del">${t("delBtn")}</button></div>
     <p><button class="btn ghost" id="again">${t("restart")}</button></p>`;
+  $("#readBtn").onclick = () => window.Voice ? Voice.speak([r.summary, r.next_step, ...r.plan.map(p => p.action)].join(". "), { lang: LANG })
+    : speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance([r.summary, r.next_step].join(". ")), { lang: LANG === "ar" ? "ar-AE" : "en-GB" }));
+  $("#jBtn2").onclick = () => renderJourney();
+  loadExplain();
   $("#fhir").onclick = async () => {
     const b = await API.get(`/api/assessments/${S.aid}/ifhas`);
     const a = document.createElement("a");
@@ -378,3 +422,75 @@ function renderResult() {
 }
 
 boot();
+
+
+const refLink = e => `<a href="https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(e.text.replace(/\s*\(\d{4}\)\.?/, " ").split(". ").slice(0, 2).join(" "))}" target="_blank" rel="noopener">${esc(e.text)}</a>`;
+
+async function loadExplain() {
+  const box = $("#explain"); if (!box) return;
+  const e = await API.get(`/api/assessments/${S.aid}/explain?lang=${LANG}`);
+  const covColor = st => ({ measured: "var(--good)", screened: "var(--warn)", reported: "var(--info)", not_answered: "var(--muted)", not_measured: "var(--muted)" })[st];
+  box.innerHTML = `
+    ${e.contradictions.length ? `<div class="card"><h3>${t("conTitle")}</h3>${e.contradictions.map(c => `<p class="small">${c.severity === "review" ? "⚑ " : ""}${esc(c.text)}</p>`).join("")}</div>` : ""}
+    <div class="card"><h2>${t("exTitle")}</h2>
+      ${e.cards.slice(0, 6).map(c => `<details class="plan-item"><summary style="text-decoration:none;color:var(--ink)"><b>${esc(c.label)}</b> ${c.grade ? gradeTag(c.grade) : ""}</summary>
+        <div class="small" style="margin-top:10px">
+          <p><b>${t("exObs")}:</b> ${esc(c.observation)}</p>
+          ${c.relevance ? `<p><b>${t("exWhy")}:</b> ${esc(c.relevance)}</p>` : ""}
+          ${c.recommendation ? `<p><b>${t("exDo")}:</b> ${esc(c.recommendation)}</p>` : ""}
+          ${c.limitations.length ? `<p><b>${t("exLim")}:</b> ${c.limitations.map(esc).join(" ")}</p>` : ""}
+          ${c.evidence.length ? `<p><b>${t("exEv")}:</b></p><ul>${c.evidence.slice(0, 4).map(x => `<li>${refLink(x)}</li>`).join("")}</ul>` : ""}
+        </div></details>`).join("")}
+    </div>
+    <div class="card"><h3>${t("covTitle")}</h3><div style="display:grid;grid-template-columns:1fr auto;gap:6px 16px" class="small">
+      ${e.coverage.map(c => `<span>${esc(c.label)}</span><span style="color:${covColor(c.status)}">${esc(c.status_text)}</span>`).join("")}</div></div>
+    <div class="card" id="wi"><h2>${t("wiTitle")}</h2><p class="muted small">${t("wiSub")}</p><div class="opts" id="wiOpts"></div><div id="wiOut" style="margin-top:16px"></div></div>`;
+  const base = await API.post(`/api/assessments/${S.aid}/whatif?lang=${LANG}`, { improve: [] });
+  const picked = new Set();
+  $("#wiOpts").innerHTML = base.options.map(o => `<span class="opt" data-n="${o.node}">${esc(o.label)}</span>`).join("");
+  const draw = w => {
+    const bar = (v, col) => `<div style="height:10px;background:var(--line);border-radius:5px;overflow:hidden"><div style="width:${Math.round(100 * v)}%;height:100%;background:${col}"></div></div>`;
+    $("#wiOut").innerHTML = `<div class="small" style="display:grid;grid-template-columns:140px 1fr 150px;gap:8px 12px;align-items:center">
+      <span>${t("wiNow")}</span>${bar(w.before, "var(--ink-2)")}<span>${t("tierWord")[w.before_tier]}</span>
+      <span>${t("wiThen")}</span>${bar(w.after, "var(--saffron)")}<span>${t("tierWord")[w.after_tier]}${w.reduction_pct ? ` (−${w.reduction_pct}%)` : ""}</span></div>
+      <p class="muted small">${esc(w.note)}</p>`;
+  };
+  draw(base);
+  $$("#wiOpts .opt").forEach(o => o.onclick = async () => {
+    o.classList.toggle("on"); o.classList.contains("on") ? picked.add(o.dataset.n) : picked.delete(o.dataset.n);
+    draw(await API.post(`/api/assessments/${S.aid}/whatif?lang=${LANG}`, { improve: [...picked] }));
+  });
+}
+
+async function renderJourney() {
+  rerender = renderJourney;
+  setWide(false);
+  const j = await API.get(`/api/me/journey?lang=${LANG}`);
+  const d = ts => new Date(ts * 1000).toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+  view().innerHTML = `<h1>${t("jTitle")}</h1>
+    ${j.recheck_due ? `<p class="lead">${t("jRecheck")(d(j.recheck_due))}</p><p><button class="btn" id="follow">${t("jFollow")}</button></p>` : `<p>${t("none")}</p>`}
+    ${j.checks.map((c, i) => `<div class="card" style="${i === 0 ? "border-inline-start:4px solid var(--saffron)" : ""}">
+      <div class="muted small">${d(c.completed_at)}</div><h2>${esc(c.next_step)}</h2><p class="small">${esc(c.summary)}</p>
+      ${c.changes ? `<h3>${t("jChanged")}</h3><p class="small">${c.changes.improved.length ? `<b>${t("jImproved")}:</b> ${c.changes.improved.map(esc).join("، ")}<br>` : ""}${c.changes.new.length ? `<b>${t("jNew")}:</b> ${c.changes.new.map(esc).join("، ")}` : ""}</p>` : ""}
+      ${c.discuss.length ? `<h3>${t("jDiscuss")}</h3><p class="small">${c.discuss.map(esc).join("، ")}</p>` : ""}
+      ${c.tests_have.length ? `<h3>${t("jHave")}</h3><p class="small">${c.tests_have.map(x => `${esc(x.name)}${x.value ? ": " + esc(x.value) : ""}`).join("<br>")}</p>` : ""}
+      <h3>${LANG === "ar" ? "المسار" : "Timeline"}</h3>
+      <ol class="small" style="padding-inline-start:18px">${c.steps.map(s => `<li>${t("jSteps")[s.step] || s.step}${s.at ? ` <span class="muted">${d(s.at)}</span>` : ""}${s.barrier ? ` (${t("barrier")[s.barrier] || s.barrier})` : ""}</li>`).join("")}</ol>
+      ${c.referral_status && !["attended", "tests_done", "followed_up", "declined"].includes(c.referral_status) ? `<div class="row" data-aid="${c.id}">
+        <button class="chip" data-p="booked">${t("jBooked")}</button><button class="chip" data-p="attended">${t("jWent")}</button><button class="chip" data-p="tests_done">${t("jTests")}</button>
+        <button class="chip" data-p="declined">${t("jCouldnt")}</button></div>` : ""}
+    </div>`).join("")}`;
+  $$("[data-aid] [data-p]").forEach(b => b.onclick = async () => {
+    const aid = b.parentElement.dataset.aid;
+    if (b.dataset.p === "declined") {
+      b.parentElement.innerHTML = `<p class="small">${t("jWhy")}</p><div class="opts">${j.barriers.map(x => `<span class="opt" data-b="${x}">${t("barrier")[x]}</span>`).join("")}</div>`;
+      $$("[data-b]").forEach(o => o.onclick = async () => { await API.post(`/api/assessments/${aid}/progress`, { status: "declined", barrier: o.dataset.b }); renderJourney(); });
+      return;
+    }
+    await API.post(`/api/assessments/${aid}/progress`, { status: b.dataset.p }); renderJourney();
+  });
+  if ($("#follow")) $("#follow").onclick = async () => {
+    S.aid = (await API.post("/api/assessments?channel=web")).id; store.set("aid", S.aid); store.del("done");
+    S.section = 0; intake();
+  };
+}

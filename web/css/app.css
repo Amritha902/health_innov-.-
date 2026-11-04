@@ -176,3 +176,7 @@ th { font-weight: 500; color: var(--muted); font-size: 13px; }
 
 .screen .window b { display: block; font-family: var(--display); font-weight: 500; font-size: 18px; }
 @media (max-width: 860px) { .screen .window { inset: 22% 12% auto 12%; padding: 22px 16px 18px; } }
+
+html.big body { font-size: 19px; }
+html.big .small, html.big .muted { font-size: 16px; }
+html.big label.q { font-size: 20px; }

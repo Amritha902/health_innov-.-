@@ -295,3 +295,84 @@ def test_insights_aggregates_and_suppresses(client):
     assert d["drivers"] and abs(sum(x["share"] for x in d["drivers"])) <= 100.5
     assert "smoking" in [p["node"] for p in d["prevalence"]]
     assert client.get("/api/insights").status_code == 401
+
+
+def test_explain_whatif_contradictions(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "aas": "never", "diabetes": "no", "sleep_h": 8}}, headers=h)
+    client.post(f"/api/assessments/{aid}/labs", headers=h, json={"testosterone": 5.2, "lh": 0.4, "fsh": 0.5, "hba1c": 6.9})
+    client.post(f"/api/assessments/{aid}/device-manual", headers=h, json={"sleep_avg_h": 5.6})
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    e = client.get(f"/api/assessments/{aid}/explain", headers=h).json()
+    keys = {c["key"] for c in e["contradictions"]}
+    assert {"sleep", "diabetes", "hormones"} <= keys
+    card = {c["node"]: c for c in e["cards"]}
+    assert "smoking" in card and card["smoking"]["evidence"] and card["smoking"]["recommendation"] and card["smoking"]["limitations"]
+    assert any("wearables" in l.lower() for l in card["sleep_loss"]["limitations"])
+    cov = {c["domain"]: c["status"] for c in e["coverage"]}
+    assert cov["hormones"] == "measured" and cov["semen"] == "not_measured" and cov["sleep"] == "measured"
+    w = client.post(f"/api/assessments/{aid}/whatif", headers=h, json={"improve": ["smoking", "tight_underwear", "sedentary", "genetic"]}).json()
+    assert w["after"] < w["before"] and "genetic" not in w["improved"] and "prediction" in w["note"]
+    ar = client.get(f"/api/assessments/{aid}/explain?lang=ar", headers=h).json()
+    assert "القدرة على الإنجاب" in ar["cards"][0]["relevance"] or ar["cards"][0]["relevance"] == ""
+
+
+def test_personal_baseline():
+    from datetime import datetime, timedelta
+    from app.wearables import summarise_apple
+    recs = {"sleep": [], "steps": []}
+    start = datetime(2026, 10, 1)
+    for d in range(28):
+        hours = 7.2 if d < 21 else 5.1
+        s = start + timedelta(days=d, hours=23)
+        recs["sleep"].append((s, s + timedelta(hours=hours), "HKCategoryValueSleepAnalysisAsleepCore", None))
+        recs["steps"].append((start + timedelta(days=d, hours=12), None, "8000" if d < 21 else "3000", None))
+    out = summarise_apple(recs)
+    b = out["personal_baseline"]
+    assert b["sleep_h"]["unusual"] and b["sleep_h"]["recent"] < b["sleep_h"]["baseline"]
+    assert b["steps"]["change_pct"] < -50
+
+
+def test_lab_report_pdf(client):
+    from pathlib import Path
+    h, aid = user(client)
+    pdf = (Path(__file__).resolve().parents[2] / "web" / "samples" / "sample_lab_report.pdf").read_bytes()
+    r = client.post(f"/api/assessments/{aid}/lab-report", headers=h, files={"file": ("r.pdf", pdf, "application/pdf")}).json()
+    vals = {v["field"]: v["value"] for v in r["values"]}
+    assert vals["concentration_m_per_ml"] == 11.5 and vals["progressive_motility_pct"] == 24 and vals["testosterone"] == 9.8
+    assert vals["hba1c"] == 5.9 and r["date"] == "2026-10-28" and r["kind"] == "semen"
+    assert client.post(f"/api/assessments/{aid}/lab-report", headers=h, files={"file": ("x.png", b"\x89PNG....", "image/png")}).status_code == 415
+
+
+def test_closed_loop_and_journey(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "smoking": "daily", "cigs_per_day": 20, "underwear": "tight"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    client.post(f"/api/assessments/{aid}/progress", headers=h, json={"status": "booked"})
+    client.post(f"/api/assessments/{aid}/progress", headers=h, json={"status": "attended"})
+    # three months later: second check with improvements
+    aid2 = client.post("/api/assessments", headers=h).json()["id"]
+    client.put(f"/api/assessments/{aid2}/answers", json={"answers": {**BASE, "smoking": "former", "underwear": "loose"}}, headers=h)
+    client.post(f"/api/assessments/{aid2}/submit", headers=h)
+    j = client.get("/api/me/journey", headers=h).json()
+    assert len(j["checks"]) == 2 and j["recheck_due"]
+    latest, first = j["checks"][0], j["checks"][1]
+    assert "Cigarette smoking" in latest["changes"]["improved"] and "Tight underwear / tight trousers" in latest["changes"]["improved"]
+    assert [s["step"] for s in first["steps"]][:2] == ["completed", "referred"] and any(s["step"] == "attended" for s in first["steps"])
+    assert latest["discuss"] and latest["coverage"]
+    client.post(f"/api/assessments/{aid2}/progress", headers=h, json={"status": "declined", "barrier": "embarrassment"})
+    ch = clinician(client)
+    d = client.get("/api/insights", headers=ch).json()
+    assert d["barriers"].get("embarrassment", 0) >= 1 and d["funnel"][-1]["step"] == "Followed up"
+
+
+def test_override_requires_reason(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "aas": "current"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    ch = clinician(client)
+    assert client.post(f"/api/clinician/cases/{aid}/review", headers=ch, json={"decision": "modify", "final_level": "primary_care"}).status_code == 400
+    r = client.post(f"/api/clinician/cases/{aid}/review", headers=ch, json={"decision": "modify", "final_level": "primary_care", "note": "Stopped 6 months ago; check hormones first"}).json()
+    assert r["final_level"] == "primary_care"
+    case = client.get(f"/api/clinician/cases/{aid}", headers=ch).json()
+    assert case["review_note"].startswith("Stopped") and case["referral"]["final_level"] == "primary_care"

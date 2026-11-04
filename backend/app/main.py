@@ -472,7 +472,8 @@ def case(aid: str, clin=Depends(current_clinician)):
                             "simulated_gbm": synth.explain(answers, result["instruments"], result.get("wearable"))}
     g = graph()
     return {"id": aid, "answers": security.unseal(row["answers"]), "result": result,
-            "referral": {k: ref[k] for k in ref.keys() if k != "note"} if ref else None,
+            "referral": {k: ref[k] for k in ref.keys() if k not in ("note", "override_reason")} if ref else None,
+            "review_note": security.unseal(ref["note"]) if ref and ref["note"] else None,
             "paths": {n: g.paths(n)[:3] for n in list((result or {}).get("attribution", {}))[:5]},
             "references": {r: g.refs[r] for r in {r for e in g.edges for r in e["refs"]}},
             "simulated": bool(row["simulated"]), "messages": msgs}
@@ -490,7 +491,7 @@ def open_share(code: str, clin=Depends(current_clinician)):
 
 
 class ReviewIn(BaseModel):
-    decision: str = Field(pattern="^(approve|modify)$")
+    decision: str = Field(pattern="^(approve|modify|reject)$")
     final_level: Optional[str] = None
     note: Optional[str] = Field(None, max_length=2000)
 
@@ -502,26 +503,33 @@ def review(aid: str, body: ReviewIn, clin=Depends(current_clinician)):
         ref = c.execute("SELECT * FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
         if not ref:
             raise HTTPException(404, "No referral")
-        final = ref["level"] if body.decision == "approve" else body.final_level
+        final = ref["level"] if body.decision == "approve" else "self_care" if body.decision == "reject" else body.final_level
         if final not in LEVELS:
             raise HTTPException(400, "Invalid level")
-        c.execute("UPDATE referrals SET status='approved', reviewed_at=?, reviewer=?, final_level=?, note=? WHERE id=?",
-                  (time.time(), clin, final, security.seal(body.note), ref["id"]))
+        if body.decision != "approve" and not (body.note or "").strip():
+            raise HTTPException(400, "A reason is required when you change or reject the suggested pathway")
+        c.execute("UPDATE referrals SET status=?, reviewed_at=?, reviewer=?, final_level=?, note=?, override_reason=? WHERE id=?",
+                  ("rejected" if body.decision == "reject" else "approved", time.time(), clin, final, security.seal(body.note),
+                   security.seal(body.note).decode() if body.decision != "approve" else None, ref["id"]))
     db.audit(clin, f"review_{body.decision}", aid)
     db.event(aid, "reviewed", final)
     return {"status": "approved", "final_level": final}
 
 
+BARRIERS = ("cost", "time", "embarrassment", "distance", "waiting_list", "partner", "not_needed", "other")
+
+
 class StatusIn(BaseModel):
-    status: str = Field(pattern="^(booked|attended|declined)$")
+    status: str = Field(pattern="^(booked|attended|tests_done|followed_up|declined)$")
+    barrier: Optional[str] = None
 
 
 @app.post("/api/clinician/cases/{aid}/status")
 def referral_status(aid: str, body: StatusIn, clin=Depends(current_clinician)):
-    col = {"booked": "booked_at", "attended": "attended_at"}.get(body.status)
+    col = {"booked": "booked_at", "attended": "attended_at", "tests_done": "tests_done_at", "followed_up": "followup_at"}.get(body.status)
     with db.tx() as c:
-        sets = "status=?" + (f", {col}=?" if col else "")
-        args = [body.status] + ([time.time()] if col else []) + [aid]
+        sets = "status=?" + (f", {col}=?" if col else "") + (", barrier=?" if body.status == "declined" else "")
+        args = [body.status] + ([time.time()] if col else []) + ([body.barrier if body.barrier in BARRIERS else "other"] if body.status == "declined" else []) + [aid]
         if not c.execute(f"UPDATE referrals SET {sets} WHERE assessment_id=?", args).rowcount:
             raise HTTPException(404, "No referral")
     db.audit(clin, f"referral_{body.status}", aid)
@@ -629,6 +637,141 @@ def passive(aid: str, lang: str = "en", user=Depends(current_user)):
     db.event(aid, "passive_preview", str(len(findings)))
     return {"summary": {k: w.get(k) for k in ("sleep_avg_h", "steps_avg", "social_jetlag_h", "spo2_low_nights", "night_glucose_high_pct", "late_caffeine_days_per_week", "resting_hr_avg", "hrv_sdnn_avg") if w.get(k) is not None},
             "findings": findings}
+
+
+# ------------------------------------------------------------------ closed loop + journey
+class ProgressIn(BaseModel):
+    status: str = Field(pattern="^(booked|attended|tests_done|declined)$")
+    barrier: Optional[str] = None
+
+
+@app.post("/api/assessments/{aid}/progress")
+def report_progress(aid: str, body: ProgressIn, user=Depends(current_user)):
+    """The man closes the loop himself when the clinic is not connected yet."""
+    own_assessment(aid, user)
+    col = {"booked": "booked_at", "attended": "attended_at", "tests_done": "tests_done_at"}.get(body.status)
+    with db.tx() as c:
+        ref = c.execute("SELECT * FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
+        if not ref:
+            raise HTTPException(404, "No referral for this check")
+        if body.status == "declined":
+            c.execute("UPDATE referrals SET status='declined', barrier=?, self_reported=1 WHERE id=?",
+                      (body.barrier if body.barrier in BARRIERS else "other", ref["id"]))
+        else:
+            c.execute(f"UPDATE referrals SET status=?, {col}=COALESCE({col}, ?), self_reported=1 WHERE id=?", (body.status, time.time(), ref["id"]))
+    db.event(aid, f"self_{body.status}", body.barrier)
+    return {"ok": True}
+
+
+def _changes(prev, cur, g, lang):
+    key = "label_ar" if lang == "ar" else "label"
+    a, b = prev.get("inputs", {}), cur.get("inputs", {})
+    improved = [g.nodes[n][key] for n in a if g.nodes[n].get("modifiable") and a[n] - b.get(n, 0) >= 0.2]
+    new = [g.nodes[n][key] for n in b if b[n] >= 0.3 and a.get(n, 0) < 0.3]
+    return {"improved": improved, "new": new,
+            "index_before": prev["triage"]["index"], "index_after": cur["triage"]["index"],
+            "tier_before": prev["triage"]["tier"], "tier_after": cur["triage"]["tier"]}
+
+
+@app.get("/api/me/journey")
+def journey(lang: str = "en", user=Depends(current_user)):
+    from . import recommend
+    lang = lang if lang in ("en", "ar") else "en"
+    g = graph()
+    with db.tx() as c:
+        rows = c.execute("SELECT * FROM assessments WHERE user_id=? AND completed_at IS NOT NULL ORDER BY completed_at", (user,)).fetchall()
+        refs = {r["assessment_id"]: dict(r) for r in c.execute(
+            "SELECT * FROM referrals WHERE assessment_id IN (SELECT id FROM assessments WHERE user_id=?)", (user,)).fetchall()}
+    checks, prev = [], None
+    for r in rows:
+        res = security.unseal(r["result"])
+        answers, w, sem, lb = security.unseal(r["answers"]), security.unseal(r["wearable"]), security.unseal(r["semen"]), security.unseal(r["labs"])
+        ref = refs.get(r["id"])
+        steps = [{"step": "completed", "at": r["completed_at"]}]
+        if ref:
+            steps += [{"step": k, "at": ref[col]} for k, col in (("referred", "created_at"), ("reviewed", "reviewed_at"), ("booked", "booked_at"),
+                      ("attended", "attended_at"), ("tests_done", "tests_done_at"), ("followed_up", "followup_at")) if ref.get(col)]
+            if ref["status"] == "declined":
+                steps.append({"step": "declined", "at": None, "barrier": ref.get("barrier")})
+        have = [{"name": n, "value": v, "date": d} for n, v, d in (lb or {}).get("already_done", [])]
+        if sem:
+            have.insert(0, {"name": "Semen analysis" if sem.get("source") == "lab" else "Home sperm test", "value": "normal" if sem.get("normal") else "below reference", "date": None})
+        view = assessment.user_view(res, lang)
+        checks.append({"id": r["id"], "completed_at": r["completed_at"], "tier": r["tier"], "level": r["level"], "next_step": view["next_step"],
+                       "summary": view["summary"], "discuss": [c_["label"] for c_ in recommend.cards(res, lang)[:3]],
+                       "coverage": recommend.data_coverage(answers, w, sem, lb, lang), "tests_have": have,
+                       "referral_status": ref["status"] if ref else None, "steps": steps,
+                       "changes": _changes(prev, res, g, lang) if prev else None})
+        prev = res
+    due = (rows[-1]["completed_at"] + 90 * 86400) if rows else None
+    return {"checks": checks[::-1], "recheck_due": due, "barriers": list(BARRIERS)}
+
+
+# ------------------------------------------------------------------ lab report interpreter
+@app.post("/api/assessments/{aid}/lab-report")
+async def read_lab_report(aid: str, file: Optional[UploadFile] = File(None), text: Optional[str] = Form(None), user=Depends(current_user)):
+    """Extracts values for him to confirm. Nothing is saved and the file is discarded."""
+    from . import labreport
+    own_assessment(aid, user)
+    if file is not None:
+        raw = await file.read()
+        if len(raw) > 5 * 1024 * 1024:
+            raise HTTPException(413, "File too large")
+        if raw[:5] == b"%PDF-":
+            try:
+                text = labreport.pdf_text(raw)
+            except Exception:
+                raise HTTPException(422, "Could not read this PDF")
+        else:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                raise HTTPException(415, "Send a PDF or text. Photos are read on the phone first.")
+        del raw
+    if not text or len(text) > 60000:
+        raise HTTPException(400, "No report text")
+    out = labreport.extract(text)
+    db.event(aid, "lab_report_read", str(len(out["values"])))
+    return out
+
+
+# ------------------------------------------------------------------ explained findings and what-if
+def _explain(row, lang):
+    from . import recommend
+    result = security.unseal(row["result"])
+    if not result:
+        raise HTTPException(404, "Not completed")
+    answers, w, sem, lb = security.unseal(row["answers"]), security.unseal(row["wearable"]), security.unseal(row["semen"]), security.unseal(row["labs"])
+    return {"cards": recommend.cards(result, lang), "coverage": recommend.data_coverage(answers, w, sem, lb, lang),
+            "contradictions": recommend.contradictions(answers, w, sem, lb, lang),
+            "baseline": (w or {}).get("personal_baseline")}
+
+
+@app.get("/api/assessments/{aid}/explain")
+def explain(aid: str, lang: str = "en", user=Depends(current_user)):
+    return _explain(own_assessment(aid, user), lang if lang in ("en", "ar") else "en")
+
+
+class WhatIfIn(BaseModel):
+    improve: list[str] = Field(default_factory=list, max_length=20)
+
+
+@app.post("/api/assessments/{aid}/whatif")
+def whatif(aid: str, body: WhatIfIn, lang: str = "en", user=Depends(current_user)):
+    from . import recommend
+    row = own_assessment(aid, user)
+    return recommend.what_if(security.unseal(row["answers"]) or {}, security.unseal(row["wearable"]), security.unseal(row["semen"]),
+                             security.unseal(row["labs"]), body.improve, lang)
+
+
+@app.get("/api/clinician/cases/{aid}/explain")
+def clin_explain(aid: str, clin=Depends(current_clinician)):
+    with db.tx() as c:
+        row = _clinician_can_see(c, aid)
+    if not row:
+        raise HTTPException(404, "Not found")
+    db.audit(clin, "view_explanation", aid)
+    return _explain(row, "en")
 
 
 # ------------------------------------------------------------------ blood results

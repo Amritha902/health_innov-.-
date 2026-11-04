@@ -104,6 +104,20 @@ def summarise_apple(recs):
         steps[s.date()] += float(v)
     if steps:
         out["steps_avg"] = round(statistics.mean(steps.values()))
+    base = {}
+    for key, daily in (("sleep_h", nights), ("steps", dict(steps))):
+        b = _baseline(daily)
+        if b:
+            base[key] = b
+    for kind, key in (("hrv", "hrv_sdnn"), ("rhr", "resting_hr")):
+        daily = defaultdict(list)
+        for s, _, v, _ in recent.get(kind, []):
+            daily[s.date()].append(float(v))
+        b = _baseline({d: statistics.mean(v) for d, v in daily.items()})
+        if b:
+            base[key] = b
+    if base:
+        out["personal_baseline"] = base
 
     for kind, key in (("hrv", "hrv_sdnn_avg"), ("rhr", "resting_hr_avg")):
         vals = [float(v) for _, _, v, _ in recent.get(kind, [])]
@@ -130,6 +144,18 @@ def summarise_apple(recs):
     if alc:
         out["alcohol_drinks_per_week"] = round(sum(alc) / (WINDOW_DAYS / 7), 1)
     return out
+
+
+def _baseline(daily, recent_days=7):
+    """Compares his last week with his own earlier weeks, so changes are judged against him, not a population cut-off."""
+    if len(daily) < recent_days + 5:
+        return None
+    days = sorted(daily)
+    recent, base = [daily[d] for d in days[-recent_days:]], [daily[d] for d in days[:-recent_days]]
+    r, b = statistics.mean(recent), statistics.mean(base)
+    sd = statistics.pstdev(base) or 1e-9
+    return {"recent": round(r, 2), "baseline": round(b, 2), "change_pct": round(100 * (r - b) / b, 1) if b else None,
+            "unusual": abs(r - b) > 1.5 * sd}
 
 
 def _social_jetlag(midpoints):
