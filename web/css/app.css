@@ -15,27 +15,27 @@
 @font-face { font-family: "Kufi"; src: url("../fonts/noto-kufi-arabic-arabic-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
 
 :root {
-  --kandura: #f2f3f0;   /* page */
-  --pearl: #ffffff;     /* raised surfaces */
-  --sand: #e6e4dd;      /* quiet fills, chips */
-  --gulf: #0f2a3a;      /* ink and the night panel */
-  --gulf-2: #3b5361;    /* secondary ink */
-  --tide: #6d8290;      /* muted text */
-  --saffron: #c9932e;   /* one accent, used sparingly */
-  --line: #d9dbd5;
+  --kandura: #f7f5ef;   /* page */
+  --pearl: #fffefa;     /* raised surfaces */
+  --sand: #eee9dd;      /* quiet fills, chips */
+  --gulf: #173d32;      /* ink and the night panel */
+  --gulf-2: #45665a;    /* secondary ink */
+  --tide: #78877d;      /* muted text */
+  --saffron: #b58a45;   /* one accent, used sparingly */
+  --line: #e5e0d4;
 
   --bg: var(--kandura); --surface: var(--pearl); --raise: var(--sand); --ink: var(--gulf); --ink-2: var(--gulf-2); --muted: var(--tide);
   --brand: var(--gulf); --brand-ink: #f2f3f0; --accent: var(--saffron); --accent-soft: #f4ead7; --soft: var(--sand);
-  --good: #2f6b56; --warn: #a06a17; --alert: #a1362b; --info: #2c5d80;
+  --good: #28634a; --warn: #946c2d; --alert: #a84337; --info: #426b77;
   --font: "Plex", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: "Kufi", "Plex", system-ui, sans-serif;
   --r-lg: 28px; --r-md: 16px; --r-sm: 10px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #091a24; --surface: #0f2433; --raise: #16303f; --ink: #eef0ec; --ink-2: #c3ccd1; --muted: #8fa1ab; --line: #1f3a4a;
-    --brand: #eef0ec; --brand-ink: #091a24; --accent-soft: #2a2a1e; --soft: #16303f;
-    --good: #7ec0a4; --warn: #e2b260; --alert: #ec8a7e; --info: #8cbbe0;
+    --bg: #111d18; --surface: #192820; --raise: #24382e; --ink: #f2f1e9; --ink-2: #d0d8cf; --muted: #a1b0a4; --line: #34483b;
+    --brand: #e9eee5; --brand-ink: #14251d; --accent-soft: #342f22; --soft: #24382e;
+    --good: #8dc4a4; --warn: #dfb66c; --alert: #ee9285; --info: #91bdc4;
   }
 }
 :root[data-theme="dark"] {
@@ -176,3 +176,41 @@ th { font-weight: 500; color: var(--muted); font-size: 13px; }
 
 .screen .window b { display: block; font-family: var(--display); font-weight: 500; font-size: 18px; }
 @media (max-width: 860px) { .screen .window { inset: 22% 12% auto 12%; padding: 22px 16px 18px; } }
+
+
+/* Competition polish — clinical luxury */
+body { letter-spacing: .005em; }
+.top { border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent); }
+.brand i { border-radius: 2px; }
+.card { box-shadow: 0 8px 28px rgba(27, 47, 35, .035); transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.card:hover { border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); }
+.btn { border-radius: 999px; padding-inline: 26px; min-height: 48px; transition: transform .18s ease, background .18s ease, box-shadow .18s ease; }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(23, 61, 50, .12); }
+.btn.ghost { border-radius: 999px; }
+.chip { border-radius: 999px; }
+.path { border-radius: 18px; padding: 20px 22px; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.path:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(23, 61, 50, .07); }
+.path.primary { background: var(--gulf); border-color: var(--gulf); }
+.screen { box-shadow: 0 24px 70px rgba(23, 61, 50, .16); }
+.screen .window { background: #102b22; box-shadow: 0 0 0 10px var(--gulf), 0 18px 45px rgba(0,0,0,.16); }
+.progress { height: 4px; border-radius: 99px; }
+.progress div { border-radius: 99px; }
+.opt { border-radius: 999px; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+.opt.on { background: var(--gulf); border-color: var(--gulf); color: #fffefa; }
+input[type=number], input[type=text], input[type=password], select, textarea { border-radius: 12px; transition: border-color .16s ease, box-shadow .16s ease; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.check { border-radius: 12px; padding-inline: 12px; }
+.qitem { transition: border-color .16s ease, background .16s ease; }
+.qitem:hover { border-color: var(--accent); background: var(--surface); }
+.stat { font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+@media (prefers-reduced-motion: no-preference) {
+  .landing .hero > div:first-child { animation: riaya-rise .55s ease both; }
+  .landing .screen { animation: riaya-rise .7s .08s ease both; }
+  @keyframes riaya-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (max-width: 680px) {
+  .wrap { padding-bottom: 56px; }
+  .hero-wrap { padding-bottom: 52px; }
+  .path { padding: 16px; }
+  .path b { font-size: 16px; }
+}
