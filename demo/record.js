@@ -8,7 +8,7 @@ const BASE = "http://localhost:8000";
 const script = JSON.parse(fs.readFileSync(path.join(__dirname, "script.json")));
 const dur = JSON.parse(fs.readFileSync(path.join(OUT, "vo", "durations.json")));
 const data = JSON.parse(fs.readFileSync(path.join(OUT, "data.json")));
-const PAD = 1.6;
+const PAD = 1.2;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(path.join(OUT, "raw"), { recursive: true });
 
@@ -20,6 +20,8 @@ let rec = async function (b, id, viewport, fn, opts = {}) {
   const ctx = await b.newContext({ viewport, recordVideo: { dir: path.join(OUT, "raw", id), size: viewport }, locale: opts.phone ? "ar-AE" : "en-GB" });
   if (opts.phone && id !== "privacy") await ctx.addInitScript(() => document.addEventListener("DOMContentLoaded", () => {
     const st = document.createElement("style"); st.textContent = ".hidebtn{display:none!important}"; document.head.appendChild(st); }));
+  await ctx.addInitScript(() => document.addEventListener("DOMContentLoaded", () => {
+    const st = document.createElement("style"); st.textContent = "#demoBar{display:none!important}"; document.head.appendChild(st); }));
   const page = await ctx.newPage();
   const t0 = Date.now();
   await fn(page);
@@ -101,7 +103,8 @@ async function caption(page, sc) {
     await p.evaluate(() => { S.aid = localStorage.getItem("aid"); tests(); }); await wait(1500);
     await p.click("#lrs"); await p.waitForSelector("#lrok", { timeout: 15000 }); await wait(1200);
     for (let i = 0; i < 4; i++) { await p.mouse.wheel(0, 220); await wait(900); }
-    await p.click("#lrok"); await wait(1200);
+    await p.click("#lrok"); await wait(400);
+    await p.evaluate(() => document.querySelector("#lrout").scrollIntoView({ behavior: "smooth", block: "center" })); await wait(1400);
   }, PHONE_OPTS);
 
   await rec(b, "explain", PHONE, async p => {
@@ -123,6 +126,48 @@ async function caption(page, sc) {
     await p.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" })); await wait(1200);
     await p.fill("#note", "Pattern fits outside testosterone use; discuss sensitively before referral"); await wait(1500);
   });
+
+  await rec(b, "care", PHONE, async p => {
+    await prep(p, "ar", { token: data.care.token, aid: data.care.aid, done: "1" });
+    await p.goto(BASE + "/index.html"); await wait(300);
+    await p.evaluate(aid => renderCare(aid), data.care.aid); await wait(2200);
+    await p.click("input[name=prov]"); await wait(900);
+    await p.evaluate(() => document.querySelector("[data-v=evening]").scrollIntoView({ behavior: "smooth", block: "center" })); await wait(1200);
+    await p.click("[data-v=evening]"); await wait(500); await p.click("[data-v=weekend]"); await wait(900);
+    await p.evaluate(() => document.querySelector("#ccSend").scrollIntoView({ behavior: "smooth", block: "center" })); await wait(1300);
+    await p.click("#ccSend"); await wait(600);
+    await p.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" })); await wait(1500);
+  }, PHONE_OPTS);
+
+  await rec(b, "coordinator", { width: 1500, height: 844 }, async p => {
+    await p.goto(BASE + "/clinician.html"); await p.fill("#p", "demo-clinician"); await p.click("#go");
+    await p.waitForSelector(".qitem"); await p.click("[data-t=appointments]"); await p.waitForSelector("#tab [data-id]");
+    await caption(p, S.coordinator); await wait(2600);
+    const d = new Date(Date.now() + 3 * 86400e3); d.setHours(17, 30, 0, 0);
+    await p.fill("#tab [data-id] .slot", new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)); await wait(700);
+    await p.click("#tab [data-id] .place"); await typeSlow(p, "#tab [data-id] .place", "Urology outpatients, level 2"); await wait(500);
+    await p.click("#tab [data-id] .conf"); await wait(1500);
+    await p.mouse.move(700, 500); await p.mouse.wheel(0, 500); await wait(1500);
+  });
+
+  await rec(b, "labs", PHONE, async p => {
+    await prep(p, "ar", { token: data.labs.token, aid: data.labs.aid, done: "1" });
+    await p.goto(BASE + "/index.html"); await wait(300);
+    await p.evaluate(() => renderLabs()); await wait(1800);
+    for (let i = 0; i < 7; i++) { await p.mouse.wheel(0, 260); await wait(900); }
+  }, PHONE_OPTS);
+
+  await rec(b, "plan", PHONE, async p => {
+    await prep(p, "ar", { token: data.labs.token, aid: data.labs.aid, done: "1" });
+    await p.goto(BASE + "/index.html"); await wait(300);
+    await p.evaluate(() => renderPlan()); await wait(1600);
+    await p.evaluate(() => document.querySelector(".pn-item").scrollIntoView({ behavior: "smooth", block: "start" })); await wait(1200);
+    const items = await p.$$(".pn-item");
+    for (const it of items.slice(0, 2)) { const o = await it.$$(".opt"); await o[3].click(); await wait(600); }
+    const v = await p.$(".pn-item .pn-val"); if (v) { await v.click(); await v.type("4", { delay: 120 }); }
+    await wait(700);
+    await p.evaluate(() => document.querySelectorAll(".card")[document.querySelectorAll(".card").length - 2].scrollIntoView({ behavior: "smooth", block: "start" })); await wait(2400);
+  }, PHONE_OPTS);
 
   await rec(b, "journey", PHONE, async p => {
     await prep(p, "ar", { token: data.journey.token, aid: data.journey.aid, done: "1" });

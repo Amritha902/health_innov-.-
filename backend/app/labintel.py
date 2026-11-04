@@ -194,7 +194,8 @@ def timeline(user, lang="en", clinician=False):
                     "change": change, "advice": advice, "higher_is_better": field in HIGHER_BETTER, "lower_is_better": field in LOWER_BETTER})
     pending = sum(1 for r in rows if r["review_status"] == "pending")
     return {"series": out, "pending_review": pending,
-            "note": "Screening information, not a diagnosis. Ranges differ between labs; each result is compared with the range printed on its own report."}
+            "note": "معلومات فحص أولي وليست تشخيصاً. تختلف المعدلات بين المختبرات، وتُقارن كل نتيجة بالمعدل المطبوع على تقريرها." if lang == "ar" else
+                    "Screening information, not a diagnosis. Ranges differ between labs; each result is compared with the range printed on its own report."}
 
 
 @router.get("/api/me/labs")

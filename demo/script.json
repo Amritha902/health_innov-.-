@@ -28,46 +28,60 @@
   "vo": "He can simply talk it through. By voice or chat, in Gulf Arabic or English. Fourteen questions, about three minutes."
  },
  {
-  "id": "watch",
-  "kind": "phone",
-  "head": "Or start with his watch",
-  "sub": "Sleep, activity, oxygen and glucose, read before a single question.",
-  "vo": "Or he starts with his watch. Before asking anything, Riaya reads his sleep, activity, oxygen and glucose, and explains what the data already shows."
- },
- {
   "id": "labreport",
   "kind": "phone",
   "head": "It reads his lab report",
-  "sub": "Every value, unit and range, checked by him before anything is saved.",
-  "vo": "He can upload a lab report. Riaya reads every value, unit and reference range, flags anything unusual, and saves nothing until he confirms. The file itself is never kept."
+  "sub": "Each value with his own lab's range, how sure the reading is, and how the sample was taken.",
+  "vo": "He can upload a lab report. Riaya reads every value with the range printed by his own lab, shows how sure it is of each reading, and asks how the sample was taken. Nothing is saved until he confirms."
  },
  {
   "id": "explain",
   "kind": "phone",
   "head": "Every finding explained",
   "sub": "What we saw, why it matters, the evidence, and what it cannot tell him.",
-  "vo": "Every finding is explained: what was seen, why it matters, how strong the evidence is, and what it cannot tell him. A what-if view shows how much of his signal comes from habits he can change. It is education, never a fertility prediction."
+  "vo": "Every finding is explained: what was seen, why it matters, how strong the evidence is, and its limits. A what-if view shows how much comes from habits he can change. It is education, never a fertility prediction."
  },
  {
   "id": "clinician",
   "kind": "desk",
   "head": "One workspace for the doctor",
   "sub": "Patient, reasoning and actions side by side, with the evidence one click away",
-  "vo": "A licensed doctor reviews every specialist referral in one workspace: the patient, the reasoning and the actions side by side. Any factor opens the evidence behind it. Contradictions are flagged, tests already done are not repeated, and overriding the suggestion needs a written reason."
+  "vo": "A licensed doctor reviews every specialist referral in one workspace. Any factor opens its evidence, and overriding a suggestion needs a written reason."
  },
  {
-  "id": "journey",
+  "id": "care",
   "kind": "phone",
-  "head": "Care continues",
-  "sub": "His journey: every step until he is seen, and what changed since last time.",
-  "vo": "Care does not stop at a referral. His journey tracks every step until he is seen, what has improved since his last check, and if something stopped him from going, the programme learns why."
+  "head": "Care Connect",
+  "sub": "After the doctor approves, he chooses a clinic and when suits him.",
+  "vo": "Once the doctor approves, Care Connect opens. He chooses a clinic that offers the care he needs, says when suits him, and sends his summary with a one-time code. No availability is ever invented."
+ },
+ {
+  "id": "coordinator",
+  "kind": "desk",
+  "head": "The visit is booked and followed",
+  "sub": "A coordinator confirms the time agreed with the clinic.",
+  "vo": "A coordinator agrees the time with the clinic and confirms it. He gets a calendar entry that only says appointment. Whether he went, or why not, is recorded, and a missed visit reopens the choice."
+ },
+ {
+  "id": "labs",
+  "kind": "phone",
+  "head": "His results, over time",
+  "sub": "Each result judged against its own lab's range, and checked by a doctor.",
+  "vo": "Every result is kept over time and judged against its own lab's range. Riaya flags a sample taken at the wrong time, advises a repeat test before any conclusion, and a doctor checks each value against the report."
+ },
+ {
+  "id": "plan",
+  "kind": "phone",
+  "head": "A twelve-week companion",
+  "sub": "Habits he chose, reviewed by a doctor, checked in weekly.",
+  "vo": "Sperm take about three months to develop, so Riaya offers a twelve-week plan. He picks up to three habits, a doctor reviews them, and a weekly check-in shows his progress. Reminders only say weekly check-in."
  },
  {
   "id": "dashboard",
   "kind": "desk",
   "head": "Population health intelligence",
   "sub": "Live, de-identified programme dashboard for ADPHC and DoH",
-  "vo": "And for Abu Dhabi's health system, every check becomes population intelligence. A live, de-identified dashboard shows how fast men reach care, which habits drive risk across the population, where prevention campaigns would help most, and whether care is fair for every community."
+  "vo": "For the health system, an anonymised dashboard shows the funnel, time to care, the barriers men report, and fairness across groups. No group smaller than five is ever shown."
  },
  {
   "id": "whatsapp",
@@ -80,15 +94,15 @@
   "id": "privacy",
   "kind": "phone",
   "head": "Private by design",
-  "sub": "One tap hides the screen. Encrypted, stored in the UAE, under his control.",
-  "vo": "One tap hides the screen. His data is encrypted, kept in the UAE, and shared only when he chooses."
+  "sub": "One tap hides the screen. Encrypted, shared only when he chooses.",
+  "vo": "One tap hides the screen. His data is encrypted, and shared only when he chooses."
  },
  {
   "id": "proof",
   "kind": "card",
-  "head": "12 days, not 12 months",
-  "sub": "Simulated pilot: median time from check to clinician. Triage rules matched guideline expectations in 26 of 26 scenarios; independent clinical validation is next.",
-  "vo": "In our simulated pilot, men reached a clinician in about twelve days instead of more than a year. The triage rules matched guideline expectations in all twenty six test scenarios, and independent clinical validation in Abu Dhabi is our next step."
+  "head": "Built and tested",
+  "sub": "32 automated tests · 26 of 26 guideline scenarios · ready for Microsoft Azure in the UAE",
+  "vo": "Riaya is built and working: thirty-two automated tests, every guideline scenario passing, and ready for Microsoft Azure in the UAE."
  },
  {
   "id": "end",

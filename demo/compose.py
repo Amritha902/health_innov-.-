@@ -9,7 +9,7 @@ W = Path(sys.argv[1])
 HERE = Path(__file__).parent
 script = json.loads((HERE / "script.json").read_text())
 dur = json.loads((W / "vo" / "durations.json").read_text())
-PAD, T, LEAD = 1.6, 0.7, 0.45          # tail after narration, transition length, narration lead-in
+PAD, T, LEAD = 1.2, 0.7, 0.45          # tail after narration, transition length, narration lead-in
 SCREEN = (1180, 92, 414, 897)          # phone screen box on the stage (x, y, w, h)
 TRANSITIONS = {"title": "fadeblack", "problem": "circleopen", "landing": "smoothleft", "chat": "smoothleft", "watch": "smoothleft", "labreport": "smoothleft", "explain": "slideup", "journey": "smoothleft",
                "graph": "smoothleft", "result": "smoothleft", "clinician": "smoothleft", "dashboard": "smoothleft", "whatsapp": "smoothleft", "privacy": "fadeblack", "proof": "fadeblack"}

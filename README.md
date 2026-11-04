@@ -6,7 +6,7 @@ Men in Abu Dhabi usually reach fertility care late: after months of trying, and 
 
 ![Riaya demo](docs/media/riaya-demo.gif)
 
-**Watch the full demo (2:38, narrated):** [docs/media/riaya-demo.mp4](docs/media/riaya-demo.mp4)
+**Watch the full demo (2:40, narrated):** [docs/media/riaya-demo.mp4](docs/media/riaya-demo.mp4)
 
 ## How it works
 
@@ -93,7 +93,7 @@ Each feature is listed with what it does, how it is built, and a screenshot from
 | Messaging | Twilio WhatsApp webhook with signature validation |
 | Interoperability | FHIR R4, LOINC, iCalendar (`.ics`) for discreet appointments and reminders |
 | Testing and CI | pytest (32 end-to-end API tests), Playwright for UI checks, GitHub Actions on SQLite and Postgres |
-| Deployment | Render blueprint (`render.yaml`) with managed Postgres and generated secrets |
+| Deployment | Microsoft Azure in a UAE region (`azure/main.bicep`: App Service and PostgreSQL Flexible Server), or the Render blueprint (`render.yaml`) |
 
 ## Results
 
@@ -162,4 +162,5 @@ Settings, backups and restores are covered in [docs/OPERATIONS.md](docs/OPERATIO
 - [docs/SYSTEM_LAYERS.md](docs/SYSTEM_LAYERS.md): the gaps Abu Dhabi has named, mapped to working features
 - [docs/PRIVACY_AND_REGULATION.md](docs/PRIVACY_AND_REGULATION.md): UAE rules and the controls in the code
 - [docs/OPERATIONS.md](docs/OPERATIONS.md): hosting, configuration, backup and restore, retention
+- [docs/AZURE.md](docs/AZURE.md): deploying on Microsoft Azure in a UAE region (App Service and PostgreSQL)
 - [docs/IFHAS_AND_ROADMAP.md](docs/IFHAS_AND_ROADMAP.md): integration, referral levels, pilot roadmap
