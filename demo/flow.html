@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/css/app.css">
+<style>
+html, body { margin: 0; background: #f2f3f0; }
+.sheet { width: 1600px; padding: 56px 64px 64px; font-family: Plex, sans-serif; color: #0f2a3a; }
+h1 { font: 300 46px/1.1 Plex, sans-serif; letter-spacing: -.02em; margin: 0 0 8px; }
+.lede { color: #3b5361; font-size: 18px; margin: 0 0 40px; }
+.cols { display: grid; grid-template-columns: 260px 300px 330px 300px; gap: 0 54px; position: relative; }
+.col h2 { font: 600 14px/1 Plex, sans-serif; color: #6d8290; margin: 0 0 14px; }
+.box { background: #fff; border: 1.5px solid #0f2a3a; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; font-size: 15px; line-height: 1.45; }
+.box b { display: block; font-size: 16px; margin-bottom: 4px; }
+.box.dark { background: #0f2a3a; color: #eef0ec; }
+.box.dark span { color: #b9c8d1; }
+.box.gold { border-color: #c9932e; border-width: 2px; }
+.box.red { border-color: #a1362b; }
+.box span { color: #3b5361; }
+.lvl { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.lvl div { border: 1.5px solid #0f2a3a; border-radius: 6px; padding: 8px 12px; font-size: 14.5px; background: #fff; }
+.lvl div:first-child { border-color: #a1362b; color: #a1362b; }
+.rail { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.rail .box { margin: 0; }
+svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.note { font-size: 13px; color: #6d8290; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="sheet" id="sheet">
+  <h1>How Riaya works</h1>
+  <p class="lede">From a man's first tap to the right clinic. Every arrow is something the code does today.</p>
+  <div class="cols" id="cols">
+    <div class="col">
+      <h2>He starts wherever he is</h2>
+      <div class="box" id="a1"><b>Talk it through</b><span>Voice or chat, Gulf Arabic or English, 14 questions</span></div>
+      <div class="box" id="a2"><b>Start with his watch</b><span>Apple Health export, glucose sensor, daily CSV</span></div>
+      <div class="box" id="a3"><b>Detailed check</b><span>Full intake, blood tests, home or lab sperm test</span></div>
+      <div class="box" id="a4"><b>WhatsApp</b><span>Nothing to install; "delete" erases all</span></div>
+    </div>
+    <div class="col">
+      <h2>Signals, with their source</h2>
+      <div class="box" id="b1"><b>Validated questions</b><span>STOP-Bang, AUDIT-C, PHQ-2, PSS-4, ADAM</span></div>
+      <div class="box" id="b2"><b>Device data</b><span>Sleep, social jet lag, steps, oxygen dips, night glucose, late caffeine</span></div>
+      <div class="box" id="b3"><b>Test results</b><span>WHO 2021 semen limits; testosterone, FSH, LH, HbA1c, vitamin D</span></div>
+      <div class="box red" id="b4"><b>Red flags</b><span>Torsion, lump, blood in semen, self-harm: skip scoring</span></div>
+    </div>
+    <div class="col">
+      <h2>Reasoning he can see</h2>
+      <div class="box dark gold" id="c1"><b>Evidence map</b><span>69 factors and 148 cause-and-effect links, every link graded A to D and cited</span></div>
+      <div class="box" id="c2"><b>Why this signal</b><span>Shapley attribution over the map, SHAP for the statistical models, plain-language pathway</span></div>
+      <div class="box" id="c3"><b>Next step rules</b><span>Ordered guideline rules (WHO, AUA/ASRM, EAU, ASRM); genomic flag; rapid review</span></div>
+      <div class="note">Screening, never a diagnosis. Three most useful changes, never a score.</div>
+    </div>
+    <div class="col">
+      <h2>The right level of care</h2>
+      <div class="lvl" id="d1">
+        <div>Emergency or urgent urology</div><div>Andrology / urology</div><div>Fertility clinic, both partners together</div><div>Family doctor or IFHAS visit</div><div>Personal plan, recheck in 3 months</div>
+      </div>
+      <div class="box dark" id="d2" style="margin-top:16px"><b>Doctor review</b><span>Every specialist referral approved by a clinician. 24 to 48 h fast track, messages, voice notes, video</span></div>
+      <div class="box" id="d3"><b>Handover</b><span>FHIR referral letter to the clinic or IFHAS: tests already done, preferences, consent scope</span></div>
+    </div>
+    <svg class="wires" id="wires"></svg>
+  </div>
+  <div class="rail">
+    <div class="box"><b>Privacy, throughout</b><span>No name, phone or ID. Separate consent per purpose. Encrypted at rest, stored in the UAE. Hide button and auto-blur. One-time share codes. Delete everything.</span></div>
+    <div class="box"><b>Shared starting point</b><span>A partner link shows his wife only that he finished the check and the kind of next step. No answers or results.</span></div>
+  </div>
+</div>
+<script>
+const box = id => { const r = document.getElementById(id).getBoundingClientRect(), c = document.getElementById("cols").getBoundingClientRect(); return { l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top, y: (r.top + r.bottom) / 2 - c.top }; };
+const pairs = [["a1","b1"],["a2","b2"],["a3","b3"],["a3","b1"],["a4","b1"],["b1","c1"],["b2","c1"],["b3","c1"],["b4","c3"],["c1","c2"],["c2","c3"],["c3","d1"],["c2","d1"]];
+let svg = `<defs><marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#0f2a3a"/></marker></defs>`;
+for (const [a, b] of pairs) {
+  const A = box(a), B = box(b);
+  if (A.r < B.l) { const mx = (A.r + B.l) / 2; svg += `<path d="M${A.r} ${A.y} C${mx} ${A.y} ${mx} ${B.y} ${B.l - 2} ${B.y}" fill="none" stroke="#0f2a3a" stroke-width="1.4" marker-end="url(#h)"/>`; }
+  else { svg += `<path d="M${(A.l + A.r) / 2} ${A.b} L${(B.l + B.r) / 2} ${B.t - 2}" stroke="#0f2a3a" stroke-width="1.4" marker-end="url(#h)"/>`; }
+}
+const D1 = box("d1"), D2 = box("d2"), D3 = box("d3");
+svg += `<path d="M${(D2.l + D2.r) / 2} ${D2.b} L${(D3.l + D3.r) / 2} ${D3.t - 2}" stroke="#0f2a3a" stroke-width="1.4" marker-end="url(#h)"/>`;
+svg += `<path d="M${(D1.l + D1.r) / 2} ${D1.b} L${(D2.l + D2.r) / 2} ${D2.t - 2}" stroke="#0f2a3a" stroke-width="1.4" marker-end="url(#h)"/>`;
+document.getElementById("wires").innerHTML = svg;
+</script>
+</body>
+</html>

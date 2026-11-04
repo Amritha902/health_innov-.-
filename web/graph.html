@@ -4,17 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Riaya Causal Map</title>
+<link rel="stylesheet" href="css/app.css">
 <style>
-:root{--bg:#f7f7f5;--panel:#fff;--ink:#1d2327;--muted:#5f6b73;--line:#d9dde0;
- --exposure:#2f7d6d;--condition:#c27a1a;--mechanism:#6a55b5;--outcome:#c0392b;--protect:#2b7bd6;--hl:#111}
+:root{--bg:#f2f3f0;--panel:#fff;--ink:#0f2a3a;--muted:#6d8290;--line:#d9dbd5;
+ --exposure:#c9932e;--condition:#2c5d80;--mechanism:#7f95a3;--outcome:#a1362b;--protect:#2f6b56;--hl:#0f2a3a}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181a;--panel:#1e2225;--ink:#e8eaeb;--muted:#9aa5ac;--line:#353b40;
  --exposure:#4fb3a0;--condition:#e3a24a;--mechanism:#9b88e6;--outcome:#ec6b5e;--protect:#5aa2f0;--hl:#fff}}
 :root[data-theme="dark"]{--bg:#15181a;--panel:#1e2225;--ink:#e8eaeb;--muted:#9aa5ac;--line:#353b40;
  --exposure:#4fb3a0;--condition:#e3a24a;--mechanism:#9b88e6;--outcome:#ec6b5e;--protect:#5aa2f0;--hl:#fff}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Plex,system-ui,sans-serif}
 header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-header h1{font-size:18px;margin:0}
+header h1{font:500 18px/1.2 Plex,sans-serif;margin:0}
 nav button{background:none;border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer;font:inherit}
 nav button.on{background:var(--ink);color:var(--bg)}
 main{display:none}main.on{display:block}
@@ -31,7 +32,7 @@ aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;pa
 aside h2{font-size:16px;margin:0 0 4px}
 .tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;border:1px solid var(--line);color:var(--muted);margin-right:4px}
 .g{font-weight:700;font-size:11px;padding:0 5px;border-radius:4px;color:#fff}
-.gA{background:#2e7d32}.gB{background:#558b2f}.gC{background:#b7791f}.gD{background:#8d6e63}
+.gA{background:#2f6b56}.gB{background:#5f8466}.gC{background:#a06a17}.gD{background:#7d7468}
 .edge{padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
 .edge a{color:var(--ink);cursor:pointer;text-decoration:underline}
 .note{color:var(--muted);font-size:12px}

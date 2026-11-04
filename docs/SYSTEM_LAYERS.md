@@ -18,3 +18,13 @@
 - two-way messaging and the video link reaching the man
 - that the partner view contains only status and stops working when revoked
 - requesting review after first declining it
+
+## Low-friction entry points (added)
+
+| Barrier | Entry point | Where |
+|---|---|---|
+| Forms feel like an exam | **Talk it through**: a 14-question conversation by voice or chat; Gulf Arabic answers understood on the phone | `web/chat.html`, `web/js/nlu.js`, `web/js/voice.js` |
+| Typing is effort | **Watch first**: device data explained before any question | `/api/assessments/{id}/passive` |
+| Installing an app leaves a trace | **WhatsApp** channel (Twilio) and an installable web app (PWA) with a neutral icon | `backend/app/conversation.py`, `web/manifest.webmanifest`, `web/sw.js` |
+| Face-to-face is hard | **Voice notes** both ways with the doctor, encrypted at rest | `/api/.../voice-notes` |
+| Someone might see the screen | **Hide button** with a neutral cover; blur when switching apps | `web/js/common.js` |

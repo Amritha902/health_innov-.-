@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/css/app.css">
+<style>
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+body { background: #f2f3f0; color: #0f2a3a; font-family: "Plex", sans-serif; }
+body.transparent { background: transparent; }
+.cscene { position: absolute; inset: 0; background: #0f2a3a; color: #eef0ec; display: grid; place-items: center; overflow: hidden; }
+.cscene svg.l { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); }
+.cscene svg.l path, .cscene svg.l rect { stroke-dasharray: 120; stroke-dashoffset: 120; animation: draw 2.4s cubic-bezier(.6,.1,.2,1) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.cscene .veil { position: absolute; inset: 0; background: radial-gradient(60% 55% at 50% 50%, rgba(15,42,58,.96) 0%, rgba(15,42,58,.78) 55%, rgba(15,42,58,.25) 100%); }
+.cscene .copy { position: relative; text-align: center; max-width: 1200px; padding: 0 80px; }
+.cscene h1 { font-family: "Plex", sans-serif; font-weight: 300; font-size: 128px; letter-spacing: -.03em; line-height: 1; margin: 0; opacity: 0; transform: translateY(24px); animation: rise 1s .9s cubic-bezier(.2,.7,.2,1) forwards; }
+.cscene h1.big { font-size: 200px; }
+.cscene p { font-size: 38px; line-height: 1.45; color: #b9c8d1; margin: 36px auto 0; max-width: 1100px; opacity: 0; animation: rise 1s 1.5s cubic-bezier(.2,.7,.2,1) forwards; }
+.cscene .star { width: 54px; height: 54px; background: #c9932e; margin: 0 auto 40px; opacity: 0; transform: scale(.4) rotate(-45deg);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: pop .9s .4s cubic-bezier(.2,1.4,.4,1) forwards; }
+@keyframes rise { to { opacity: 1; transform: none; } }
+@keyframes pop { to { opacity: 1; transform: none; } }
+.stage { position: absolute; inset: 0; }
+.stage .text { position: absolute; left: 160px; top: 0; bottom: 0; width: 820px; display: flex; flex-direction: column; justify-content: center; }
+.stage h2 { font-family: "Plex", sans-serif; font-weight: 300; font-size: 92px; line-height: 1.02; letter-spacing: -.03em; margin: 0 0 28px; }
+.stage p { font-size: 34px; line-height: 1.45; color: #3b5361; margin: 0; max-width: 760px; }
+.stage .mark { width: 34px; height: 34px; background: #c9932e; margin-bottom: 40px; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+.stage .halo { position: absolute; right: 120px; top: 40px; width: 640px; height: 1000px; border-radius: 80px; overflow: hidden; background: #0f2a3a; }
+.stage .halo svg { width: 100%; height: 100%; opacity: .55; }
+.frame { position: absolute; left: 1166px; top: 78px; width: 442px; height: 925px; border-radius: 62px; box-shadow: 0 0 0 14px #0b141a, 0 50px 90px -30px rgba(0,0,0,.6); }
+.frame::after { content: ""; position: absolute; top: 14px; left: 50%; width: 120px; height: 30px; margin-left: -60px; background: #0b141a; border-radius: 20px; }
+</style>
+</head>
+<body>
+<script>
+const q = new URLSearchParams(location.search);
+const mode = q.get("mode"), head = q.get("head") || "", sub = (q.get("sub") || "").replace(/ · /g, ", ");
+const lattice = cls => `<svg class="${cls}" viewBox="0 0 480 270" preserveAspectRatio="xMidYMid slice"><defs><pattern id="m" width="30" height="30" patternUnits="userSpaceOnUse">
+  <g fill="none" stroke="#c9932e" stroke-opacity=".6" stroke-width=".8"><path d="M15 3 L18 12 L27 15 L18 18 L15 27 L12 18 L3 15 L12 12 Z"/><rect x="8.5" y="8.5" width="13" height="13" transform="rotate(45 15 15)"/></g>
+  </pattern></defs><rect width="480" height="270" fill="url(#m)"/></svg>`;
+const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+if (mode === "card") {
+  // a real drawn lattice (individual paths) so it can animate stroke by stroke
+  let paths = "";
+  for (let y = 0; y < 300; y += 30) for (let x = 0; x < 520; x += 30)
+    paths += `<path d="M${x + 15} ${y + 3} L${x + 18} ${y + 12} L${x + 27} ${y + 15} L${x + 18} ${y + 18} L${x + 15} ${y + 27} L${x + 12} ${y + 18} L${x + 3} ${y + 15} L${x + 12} ${y + 12} Z" style="animation-delay:${((x + y) / 900).toFixed(2)}s"/>`;
+  document.body.innerHTML = `<div class="cscene"><svg class="l" viewBox="0 0 480 270" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke="#c9932e" stroke-opacity=".55" stroke-width=".8">${paths}</g></svg>
+    <div class="veil"></div><div class="copy"><div class="star"></div><h1 class="${head.length < 10 ? "big" : ""}">${esc(head)}</h1>${sub ? `<p>${esc(sub)}</p>` : ""}</div></div>`;
+} else if (mode === "stage") {
+  document.body.innerHTML = `<div class="stage"><div class="halo">${lattice("")}</div><div class="text"><div class="mark"></div><h2>${esc(head)}</h2><p>${esc(sub)}</p></div></div>`;
+} else if (mode === "frame") {
+  document.body.className = "transparent";
+  document.body.innerHTML = `<div class="frame"></div>`;
+}
+</script>
+</body>
+</html>

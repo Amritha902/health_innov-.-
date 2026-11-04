@@ -1,41 +1,83 @@
-# Riaya (رعاية): a private front door to men's reproductive health
+# Riaya (رعاية)
 
-A privacy-first, Arabic-first pre-screen that helps men in Abu Dhabi understand and act on reproductive-health signals early. It routes each man to the right level of care, with a clinician approving every referral. It is built to plug into the IFHAS reproductive-health screening module.
+**A private front door to men's reproductive health, built for Abu Dhabi.**
 
-## What's in it
-- **Evidence graph** (`knowledge/graph.json`): 69 factors and 148 cause→effect links, each with an evidence grade (A–D) and a source (95 references). It also holds 23 measurable signals (watch, phone, CGM, questionnaire, lab) with thresholds, and 8 red flags. The graph drives scoring and explanations, and is validated at server start.
-- **Intake** in Arabic and English, using validated instruments: STOP-Bang, AUDIT-C, PHQ-2, PSS-4 and ADAM.
-- **Device data**: Apple Health export (sleep, steps, HRV, SpO2, glucose, caffeine, alcohol), Dexcom/Libre CGM CSV, a generic daily CSV (Fitbit/Garmin/Health Connect/screen time), or manual entry. Raw files are never stored.
-- **Test results**: interpreted against WHO 2021 reference limits, from a lab report, a quantitative smartphone device (YO-type) or a simple home test.
-- **Explainability**: Shapley attribution over the evidence graph, a gradient-boosting model with a SHAP waterfall (simulated cohort with literature effect sizes), and a logistic model trained on real data (UCI Fertility, n=100) as a second opinion.
-- **Triage**: deterministic, ordered rules, each citing its guideline. Red flags override everything. Clinician approval is required for specialist referrals.
-- **Clinician console**: review queue, case explanation, approve/modify, booking and attendance tracking, outcome and fairness metrics, access log.
-- **IFHAS hand-off**: FHIR R4 Bundle export.
-- **Privacy**: no identity data, granular consent, encryption at rest, revocable share codes, delete/export, audit log.
-- **Care navigation**: after approval, a handover package (FHIR referral document plus a readable letter) for the receiving clinic. It includes results already available (so tests are not repeated) and the man's preferences.
-- **Genomic flag**: automatic karyotype / AZF / CFTR and genetic-counselling flags for severe results, high FSH or a family pattern.
-- **Rapid clinical review**: 24–48 h target with a live timer, encrypted patient–clinician messages, and a private video room.
-- **Partner mode**: a revocable link that shows his wife only that he completed the check and the kind of next step.
-- **Blood results and environment**: optional testosterone/LH/FSH/HbA1c/vitamin D entry, plus occupation and traffic/industry proximity.
-- **Clothing check**: reads a care label (typed, or photographed with on-device OCR) and gives a groin-heat index with evidence-graded notes.
+Men in Abu Dhabi usually reach fertility care late: after months of trying, and after their wife has already been assessed. Riaya lets a man check the everyday things that affect his reproductive health privately, in Arabic or English, by voice, chat, his watch or WhatsApp. It explains every signal with published evidence and sends him to the right level of care, with a licensed doctor approving every specialist referral and a structured hand-off into the IFHAS screening programme.
+
+![Riaya demo](docs/media/riaya-demo.gif)
+
+**Watch the full demo (1:43, narrated):** [docs/media/riaya-demo.mp4](docs/media/riaya-demo.mp4)
+
+## How it works
+
+![How Riaya works](docs/media/flow.png)
+
+| What a man sees | What a doctor sees |
+|---|---|
+| <img src="docs/media/screen-landing.png" width="300"> | <img src="docs/media/screen-clinician.png" width="560"> |
+
+## Ways in
+
+| Path | What happens | Where in the code |
+|---|---|---|
+| Talk it through | 14 questions by voice or chat. Understands Gulf Arabic, standard Arabic and English replies, including spoken numbers. Hands-free mode reads each question aloud and listens for the answer. | `web/chat.html`, `web/js/chat.js`, `web/js/nlu.js`, `web/js/voice.js` |
+| Start with his watch | Reads an Apple Health export (or glucose sensor / daily CSV) and explains what sleep, activity, oxygen and glucose already show, before any question. A sample export is included. | `backend/app/wearables.py`, `/api/assessments/{id}/passive` |
+| Detailed check | Full intake with validated instruments, blood tests, home or lab sperm test. | `web/js/app.js`, `backend/app/questionnaire.py` |
+| WhatsApp | The same check over WhatsApp via Twilio. The phone number is never stored, only a salted hash, and "delete" erases everything. A WhatsApp-style demo runs without a phone. | `backend/app/conversation.py`, `/api/whatsapp/twilio`, `web/whatsapp.html` |
+
+**Voice.** Listening uses the phone's own speech recognition (iPhone Safari, Android Chrome, Samsung Internet, Edge). In private mode, or where the browser has none (e.g. Firefox), it runs **Whisper**, OpenAI's open-source speech model, inside the browser with transformers.js, so the audio never leaves the phone. Questions are read aloud with the phone's own voices, and he chooses the voice.
+
+## What is inside
+
+- **Evidence map** (`knowledge/graph.json`): 69 factors, 148 cause-and-effect links, each graded A–D and cited (95 sources, listed with links in [docs/REFERENCES.md](docs/REFERENCES.md)). It also holds 23 measurable signals with thresholds and 8 red flags. The server refuses to start if any link lacks a source.
+- **Explainability**: Shapley attribution over the evidence map; a gradient-boosting model with a SHAP waterfall; a logistic model trained on real data (UCI Fertility, n=100) as a second opinion for doctors.
+- **Triage**: ordered guideline rules (WHO 2021, AUA/ASRM 2021, EAU 2024, ASRM 2020). Red flags override everything. Genomic flag (karyotype, AZF, CFTR). Rapid review with a 24–48 h target.
+- **Doctor console**: priority queue with SLA timers, explanations, approve or change the referral, encrypted messages, **voice notes both ways**, video room, FHIR handover letter, outcome and fairness dashboard, access log.
+- **Privacy**: no name, phone or ID; separate consent per purpose; encryption at rest; hide button and auto-blur in the app switcher; one-time share codes; a partner link that shows only status; delete and export everything. Installable as an app (PWA) with no app store.
+- **IFHAS hand-off**: FHIR R4 bundle (questionnaire response, observations with LOINC codes, service request).
+
+## Results
+
+From [validation/REPORT.md](validation/REPORT.md):
+- Triage on 26 clinical scenarios: 26/26 correct, **0 under-triage**.
+- Real data (UCI Fertility, n=100): AUC 0.62–0.69.
+- Simulated cohort of 20,000 men with literature effect sizes: AUC 0.68, with calibration and subgroup fairness tables.
+- The untrained evidence map alone ranks outcomes with AUC 0.66, which shows the map and the literature agree.
+
+The report also states the limits plainly: the test cases were written by the same team, the cohort is simulated, and the real dataset is small.
 
 ## Run it
+
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --app-dir backend --port 8000
 ```
-- User app: http://localhost:8000 · Clinician console: http://localhost:8000/clinician.html (demo login `clinician` / `demo-clinician`; set `RIAYA_CLINICIAN_PASSWORD` for anything real) · Evidence map: /graph.html · Clothing check: /fabric.html · API docs: /api/docs
+
+Open http://localhost:8000. Doctor console: `/clinician.html` (demo login `clinician` / `demo-clinician`). Also `/chat.html`, `/whatsapp.html`, `/graph.html`, `/fabric.html`, and API docs at `/api/docs`.
 
 ```bash
-.venv/bin/python -m pytest -q backend/tests          # end-to-end API tests
-.venv/bin/python validation/run_validation.py         # writes validation/REPORT.md
-.venv/bin/python validation/run_validation.py --seed-demo   # also loads simulated cases into the console
+.venv/bin/python -m pytest -q                               # 16 end-to-end tests (SQLite; set DATABASE_URL to run on Postgres)
+.venv/bin/python validation/run_validation.py --seed-demo   # validation report + simulated cases for the console
 ```
 
+**Deploy:** `render.yaml` deploys to Render. Optional settings:
+
+| Setting | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres instead of SQLite |
+| `RIAYA_DATA_KEY` | Encryption key |
+| `RIAYA_CLINICIAN_PASSWORD` | Doctor console password |
+| `TWILIO_AUTH_TOKEN` | Verify WhatsApp webhooks |
+| `RIAYA_WHATSAPP_NUMBER` | Show a QR code on the WhatsApp page |
+| `RIAYA_PUBLIC_URL` | Public address used in links |
+| `RIAYA_VIDEO_BASE` | Self-hosted video server |
+
 ## Docs
-- `validation/REPORT.md`: triage vignettes, real-data model, simulated cohort, calibration, fairness, pathway simulation, limitations
-- `docs/RESEARCH_VERIFICATION.md`: every claim checked against the literature, including corrections
-- `docs/CULTURAL_DESIGN.md`: each cultural/religious barrier and how the product handles it
-- `docs/PRIVACY_AND_REGULATION.md`: applicable UAE rules and the controls in the code
-- `docs/SYSTEM_LAYERS.md`: each gap Abu Dhabi has named, mapped to a working feature
-- `docs/IFHAS_AND_ROADMAP.md`: integration, referral levels, pilot roadmap and value measures
+
+- [docs/RESEARCH_VERIFICATION.md](docs/RESEARCH_VERIFICATION.md): every claim checked, including corrections to the brief
+- [docs/REFERENCES.md](docs/REFERENCES.md): all 95 sources with links and what each one supports
+- [docs/CULTURAL_DESIGN.md](docs/CULTURAL_DESIGN.md): each cultural and religious barrier, and how the product handles it
+- [docs/SYSTEM_LAYERS.md](docs/SYSTEM_LAYERS.md): the gaps Abu Dhabi has named, mapped to working features
+- [docs/PRIVACY_AND_REGULATION.md](docs/PRIVACY_AND_REGULATION.md): UAE rules and the controls in the code
+- [docs/IFHAS_AND_ROADMAP.md](docs/IFHAS_AND_ROADMAP.md): integration, referral levels, pilot roadmap
+- `demo/`: the scripts that record and assemble the demo video from the live app (narration by Kokoro, an open-source voice model)
