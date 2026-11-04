@@ -41,7 +41,73 @@ CREATE TABLE IF NOT EXISTS feedback (
 """
 
 
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+PG = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+
+
+class Row(dict):
+    """Same access style for SQLite and Postgres rows: row["col"], row[0], dict(row), row.keys()."""
+    def __getitem__(self, k):
+        return list(self.values())[k] if isinstance(k, int) else dict.__getitem__(self, k)
+
+
+class _Cur:
+    def __init__(self, cur):
+        self.cur = cur
+        self.rowcount = cur.rowcount
+
+    def _wrap(self, r):
+        if r is None:
+            return None
+        if isinstance(r, sqlite3.Row):
+            return Row(zip(r.keys(), tuple(r)))
+        return Row({k: bytes(v) if isinstance(v, memoryview) else v for k, v in r.items()})
+
+    def fetchone(self):
+        return self._wrap(self.cur.fetchone())
+
+    def fetchall(self):
+        return [self._wrap(r) for r in self.cur.fetchall()]
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+class _Con:
+    def __init__(self, raw):
+        self.raw = raw
+
+    def execute(self, sql, params=()):
+        if PG:
+            if sql.lstrip().upper().startswith("INSERT OR REPLACE INTO FEEDBACK"):
+                sql = ("INSERT INTO feedback VALUES (?,?,?,?,?) ON CONFLICT (assessment_id) DO UPDATE SET "
+                       "trust=EXCLUDED.trust, clarity=EXCLUDED.clarity, comfort=EXCLUDED.comfort, ts=EXCLUDED.ts")
+            sql = sql.replace("?", "%s")
+            cur = self.raw.cursor()
+            cur.execute(sql, params)
+            return _Cur(cur)
+        return _Cur(self.raw.execute(sql, params))
+
+    def columns(self, table):
+        if PG:
+            return {r["column_name"] for r in self.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name=?", (table,)).fetchall()}
+        return {r["name"] for r in self.execute(f"PRAGMA table_info({table})").fetchall()}
+
+    def script(self, text):
+        if PG:
+            text = text.replace(" BLOB", " BYTEA").replace(" REAL", " DOUBLE PRECISION")
+            for stmt in filter(str.strip, text.split(";")):
+                self.raw.execute(stmt)
+        else:
+            self.raw.executescript(text)
+
+
 def connect():
+    if PG:
+        import psycopg
+        from psycopg.rows import dict_row
+        return psycopg.connect(DATABASE_URL, row_factory=dict_row)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB_PATH, check_same_thread=False)
     con.row_factory = sqlite3.Row
@@ -52,12 +118,15 @@ def connect():
 
 @contextmanager
 def tx():
-    con = connect()
+    raw = connect()
     try:
-        yield con
-        con.commit()
+        yield _Con(raw)
+        raw.commit()
+    except Exception:
+        raw.rollback()
+        raise
     finally:
-        con.close()
+        raw.close()
 
 
 MIGRATIONS = {
@@ -68,11 +137,13 @@ MIGRATIONS = {
 
 def init():
     with tx() as c:
-        c.executescript(SCHEMA)
+        c.script(SCHEMA)
         for table, cols in MIGRATIONS.items():
-            have = {r[1] for r in c.execute(f"PRAGMA table_info({table})")}
+            have = c.columns(table)
             for name, decl in cols:
                 if name not in have:
+                    if PG:
+                        decl = decl.replace("BLOB", "BYTEA").replace("REAL", "DOUBLE PRECISION")
                     c.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
 
