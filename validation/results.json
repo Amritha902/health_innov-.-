@@ -1,0 +1,508 @@
+{
+ "vignettes": [
+  {
+   "case": "Healthy 28-year-old, general check",
+   "expected": "self_care",
+   "got": "self_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Sudden severe testicular pain",
+   "expected": "emergency",
+   "got": "emergency",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "New testicular lump",
+   "expected": "urgent_specialist",
+   "got": "urgent_specialist",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Painful swollen scrotum with fever",
+   "expected": "same_day_primary",
+   "got": "same_day_primary",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Thoughts of self-harm",
+   "expected": "emergency",
+   "got": "emergency",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Dry orgasm",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Lab: no sperm seen",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Lab: concentration 3 M/mL",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Lab: mild single low value",
+   "expected": "primary_care",
+   "got": "primary_care",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Lab: two parameters low",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Lab: normal",
+   "expected": "self_care",
+   "got": "self_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Home device below cut-off",
+   "expected": "primary_care",
+   "got": "primary_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Trying 14 months",
+   "expected": "fertility_services",
+   "got": "fertility_services",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Trying 7 months, wife 37",
+   "expected": "fertility_services",
+   "got": "fertility_services",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Trying 5 months, wife 29",
+   "expected": "self_care",
+   "got": "self_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Current anabolic steroid cycle",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Steroids more than a year ago, otherwise well",
+   "expected": "self_care..primary_care",
+   "got": "self_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Known varicocele",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Undescended testis as a child",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Past chemotherapy",
+   "expected": "andrology",
+   "got": "andrology",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Loud snoring, apnoeas, BMI 36, age 52",
+   "expected": "primary_care",
+   "got": "primary_care",
+   "status": "ok",
+   "review": true
+  },
+  {
+   "case": "Obese with pre-diabetes",
+   "expected": "primary_care",
+   "got": "primary_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Low libido + weaker erections (ADAM+)",
+   "expected": "primary_care",
+   "got": "primary_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Smoker, shisha, short sleep, tight underwear",
+   "expected": "self_care..primary_care",
+   "got": "self_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Possibly untreated past infection",
+   "expected": "primary_care",
+   "got": "primary_care",
+   "status": "ok",
+   "review": false
+  },
+  {
+   "case": "Low mood (PHQ-2 = 4), otherwise well",
+   "expected": "self_care..primary_care",
+   "got": "self_care",
+   "status": "ok",
+   "review": false
+  }
+ ],
+ "uci": {
+  "logistic": {
+   "auc_mean": 0.615,
+   "auc_ci95": [
+    0.214,
+    0.959
+   ],
+   "brier": 0.225
+  },
+  "gbm": {
+   "auc_mean": 0.685,
+   "auc_ci95": [
+    0.361,
+    0.944
+   ],
+   "brier": 0.122
+  },
+  "n": 100,
+  "positives": 12
+ },
+ "synthetic": {
+  "meta": {
+   "features": [
+    "age",
+    "bmi",
+    "smoker",
+    "alcohol_units",
+    "sleep_h",
+    "pss4",
+    "sitting_h",
+    "tight",
+    "hot_bath",
+    "aas",
+    "varicocele",
+    "cryptorchid",
+    "mumps",
+    "diabetes",
+    "stop_bang",
+    "vitd_low"
+   ],
+   "n_train": 15000,
+   "n_test": 5000,
+   "prevalence": 0.308,
+   "auc_test": 0.682,
+   "brier_test": 0.189,
+   "effects": {
+    "obese": {
+     "factor": 0.8,
+     "ref": "sermondade2013",
+     "note": "BMI >= 30"
+    },
+    "overweight": {
+     "factor": 0.93,
+     "ref": "sermondade2013",
+     "note": "BMI 25-30"
+    },
+    "smoker": {
+     "factor": 0.85,
+     "ref": "sharma2016",
+     "note": "daily smoking"
+    },
+    "alcohol_high": {
+     "factor": 0.67,
+     "ref": "jensen2014",
+     "note": ">= 25 units/week: ~33% lower concentration"
+    },
+    "alcohol_mod": {
+     "factor": 0.9,
+     "ref": "jensen2014",
+     "note": "5-24 units/week"
+    },
+    "short_sleep": {
+     "factor": 0.71,
+     "ref": "jensen2013",
+     "note": "high sleep disturbance: ~29% lower concentration"
+    },
+    "high_stress": {
+     "factor": 0.7,
+     "ref": "nordkap2016",
+     "note": "highest stress group: up to ~38% lower; 0.70 used conservatively"
+    },
+    "sedentary": {
+     "factor": 0.8,
+     "ref": "gaskins2015",
+     "note": "high TV/sitting time; 44% lower in the extreme group, 0.80 used conservatively"
+    },
+    "tight": {
+     "factor": 0.8,
+     "ref": "minguez2018",
+     "note": "boxers had 25% higher concentration -> tight = 1/1.25"
+    },
+    "hot_bath": {
+     "factor": 0.85,
+     "ref": "shefi2007",
+     "note": "regular wet heat; small study"
+    },
+    "aas": {
+     "factor": 0.1,
+     "ref": "christou2017",
+     "note": "current anabolic steroid use; frequent azoospermia"
+    },
+    "varicocele": {
+     "factor": 0.7,
+     "ref": "eau2024",
+     "note": "clinical varicocele"
+    },
+    "cryptorchid": {
+     "factor": 0.7,
+     "ref": "eau2024",
+     "note": "history of undescended testis"
+    },
+    "mumps": {
+     "factor": 0.8,
+     "ref": "masarani2006",
+     "note": "post-pubertal orchitis"
+    }
+   },
+   "prevalence_assumptions": {
+    "obese": 0.3,
+    "overweight": 0.38,
+    "smoker": 0.22,
+    "alcohol_mod": 0.08,
+    "alcohol_high": 0.02,
+    "short_sleep": 0.3,
+    "high_stress": 0.2,
+    "sedentary": 0.4,
+    "tight": 0.45,
+    "hot_bath": 0.1,
+    "aas": 0.03,
+    "varicocele": 0.12,
+    "cryptorchid": 0.02,
+    "mumps": 0.02,
+    "diabetes": 0.12,
+    "osa": 0.2,
+    "vitd_low": 0.45
+   }
+  },
+  "calibration": [
+   {
+    "predicted": 0.178,
+    "observed": 0.158,
+    "n": 500
+   },
+   {
+    "predicted": 0.209,
+    "observed": 0.166,
+    "n": 500
+   },
+   {
+    "predicted": 0.225,
+    "observed": 0.174,
+    "n": 500
+   },
+   {
+    "predicted": 0.246,
+    "observed": 0.228,
+    "n": 500
+   },
+   {
+    "predicted": 0.265,
+    "observed": 0.286,
+    "n": 500
+   },
+   {
+    "predicted": 0.285,
+    "observed": 0.294,
+    "n": 500
+   },
+   {
+    "predicted": 0.31,
+    "observed": 0.31,
+    "n": 500
+   },
+   {
+    "predicted": 0.337,
+    "observed": 0.372,
+    "n": 500
+   },
+   {
+    "predicted": 0.382,
+    "observed": 0.416,
+    "n": 500
+   },
+   {
+    "predicted": 0.621,
+    "observed": 0.672,
+    "n": 500
+   }
+  ],
+  "brier": 0.189,
+  "operating_point": {
+   "threshold": 0.4,
+   "sensitivity": 0.246,
+   "specificity": 0.933,
+   "ppv": 0.62,
+   "npv": 0.736
+  },
+  "fairness": {
+   "age": {
+    "20-29": {
+     "n": 1988,
+     "prevalence": 0.311,
+     "auc": 0.677,
+     "mean_predicted": 0.313,
+     "flag_rate": 0.139,
+     "sensitivity": 0.269
+    },
+    "30-39": {
+     "n": 1967,
+     "prevalence": 0.3,
+     "auc": 0.69,
+     "mean_predicted": 0.301,
+     "flag_rate": 0.109,
+     "sensitivity": 0.231
+    },
+    "40-45": {
+     "n": 1045,
+     "prevalence": 0.316,
+     "auc": 0.675,
+     "mean_predicted": 0.3,
+     "flag_rate": 0.114,
+     "sensitivity": 0.23
+    }
+   },
+   "bmi": {
+    "<25": {
+     "n": 1495,
+     "prevalence": 0.248,
+     "auc": 0.667,
+     "mean_predicted": 0.276,
+     "flag_rate": 0.069,
+     "sensitivity": 0.173
+    },
+    "25-30": {
+     "n": 2134,
+     "prevalence": 0.297,
+     "auc": 0.674,
+     "mean_predicted": 0.292,
+     "flag_rate": 0.086,
+     "sensitivity": 0.196
+    },
+    ">=30": {
+     "n": 1371,
+     "prevalence": 0.389,
+     "auc": 0.654,
+     "mean_predicted": 0.36,
+     "flag_rate": 0.236,
+     "sensitivity": 0.356
+    }
+   },
+   "background": {
+    "Emirati": {
+     "n": 1009,
+     "prevalence": 0.298,
+     "auc": 0.676,
+     "mean_predicted": 0.299,
+     "flag_rate": 0.114,
+     "sensitivity": 0.243
+    },
+    "Arab expat": {
+     "n": 997,
+     "prevalence": 0.318,
+     "auc": 0.669,
+     "mean_predicted": 0.315,
+     "flag_rate": 0.146,
+     "sensitivity": 0.297
+    },
+    "South Asian": {
+     "n": 1993,
+     "prevalence": 0.302,
+     "auc": 0.693,
+     "mean_predicted": 0.306,
+     "flag_rate": 0.121,
+     "sensitivity": 0.246
+    },
+    "Western": {
+     "n": 417,
+     "prevalence": 0.324,
+     "auc": 0.712,
+     "mean_predicted": 0.305,
+     "flag_rate": 0.106,
+     "sensitivity": 0.222
+    },
+    "Other": {
+     "n": 584,
+     "prevalence": 0.315,
+     "auc": 0.655,
+     "mean_predicted": 0.303,
+     "flag_rate": 0.11,
+     "sensitivity": 0.179
+    }
+   }
+  }
+ },
+ "engine": {
+  "n": 2000,
+  "auc_engine_index_vs_simulated_outcome": 0.664
+ },
+ "workflow": {
+  "assumptions": {
+   "completion_rate": 0.82,
+   "minutes_to_complete": "lognormal median ~9",
+   "review_hours": "uniform 1-24",
+   "booked_given_referral": 0.75,
+   "attended_given_booked": 0.85,
+   "days_to_attend": "uniform 3-21",
+   "comparator_days_to_male_evaluation": "12+ months (usual pathway: male assessed after female work-up)"
+  },
+  "started": 400,
+  "completed": 335,
+  "referred": 164,
+  "clinician_reviewed": 95,
+  "referral_completion_rate": 0.652,
+  "median_days_to_evaluation": 12.1,
+  "levels": {
+   "self_care": 171,
+   "andrology": 54,
+   "primary_care": 81,
+   "fertility_services": 29
+  },
+  "seeded": 400
+ }
+}

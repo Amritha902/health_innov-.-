@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Riaya Clothing Check</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top"><div class="brand"><i></i><a href="index.html" style="color:inherit;text-decoration:none" id="brand"></a></div><div class="spacer"></div>
+  <button class="chip" id="langBtn"></button><button class="chip exit" onclick="quickExit()" id="exitBtn"></button></header>
+<main class="wrap" id="view"></main>
+<script src="js/common.js"></script>
+<script src="js/i18n.js"></script>
+<script>
+const F = {
+  en: { title: "Clothing check", sub: "Type or photograph a care label. We look at how much a garment may warm the groin — the part with the strongest evidence — and add notes on the fibres.",
+    label: "Care-label composition", photo: "…or take a photo of the label (read on your phone; nothing is uploaded)", garment: "Garment", fit: "Fit", check: "Check",
+    reading: "Reading label…", readOk: "Label read. Check the text, then press Check.", readErr: "Couldn't read the photo. Please type it.",
+    g: { underwear: "Underwear", wizar: "Wizar / sirwal", shorts: "Shorts / gym wear", trousers: "Trousers / jeans", kandura: "Kandura", top: "Shirt / top" },
+    f: { tight: "Tight", regular: "Regular", loose: "Loose" },
+    v: { good: "Good choice", okay: "Okay", caution: "Consider an alternative" },
+    index: "Groin-heat index", breath: "breathability", synth: "synthetic", read: "read as",
+    notes: {
+      fit: "A tight fit holds the testes against the body and raises their temperature. In one study, men wearing boxers had about 25% higher sperm concentration than men in tight underwear.",
+      breathability: "Mostly synthetic. Synthetic fibres usually breathe less and hold more moisture than cotton or linen, so the area can stay warmer, especially in UAE heat. On its own this is a small effect; fit matters more.",
+      polyester_static: "Two small studies from the 1990s linked polyester underwear to lower sperm counts, possibly because of static charge. They were never repeated, so this is a weak signal.",
+      microplastics: "Precautionary note: BPA has been found in some polyester-spandex sportswear, and microplastics have been found in human testes. There is no evidence that wearing synthetic clothes puts plastic into your blood; most exposure comes from food, water and air.",
+      good_choice: "Breathable fibre and a comfortable fit — a good everyday choice.",
+      kandura: "A kandura hangs loosely, so its fabric matters little for heat. What you wear under it matters more." },
+    swaps: { looser_cut: "Choose a looser cut (boxers, sirwal, relaxed trousers).", natural_fibre: "For garments next to the skin, look for 90% or more cotton, linen, lyocell (Tencel) or modal.", change_after_gym: "Fine for workouts — change out of sweaty gym wear soon after." },
+    swapsT: "Simple swaps", disc: "General wellness information, not a diagnosis. Clothing is one small, reversible factor." },
+  ar: { title: "فحص الملابس", sub: "اكتب أو صوّر بطاقة الملابس. نقيّم مدى تأثير القطعة على حرارة منطقة الحوض — وهو الجانب الأقوى دليلاً — مع ملاحظات حول نوع الألياف.",
+    label: "تركيب القماش من البطاقة", photo: "…أو صوّر البطاقة (تُقرأ على هاتفك؛ لا يُرفع شيء)", garment: "نوع القطعة", fit: "المقاس", check: "افحص",
+    reading: "جارٍ قراءة البطاقة…", readOk: "تمت القراءة. راجع النص ثم اضغط افحص.", readErr: "تعذّرت قراءة الصورة. يرجى كتابة التركيب.",
+    g: { underwear: "ملابس داخلية", wizar: "وزار / سروال", shorts: "شورت / ملابس رياضية", trousers: "بنطال / جينز", kandura: "كندورة", top: "قميص / علوي" },
+    f: { tight: "ضيق", regular: "عادي", loose: "فضفاض" },
+    v: { good: "اختيار جيد", okay: "مقبول", caution: "فكّر في بديل" },
+    index: "مؤشر حرارة الحوض", breath: "التهوية", synth: "صناعي", read: "قُرئت كـ",
+    notes: {
+      fit: "المقاس الضيق يُبقي الخصيتين ملاصقتين للجسم ويرفع حرارتهما. في إحدى الدراسات، كان تركيز الحيوانات المنوية لدى من يرتدون البوكسر أعلى بنحو ٢٥٪ مقارنة بمن يرتدون ملابس داخلية ضيقة.",
+      breathability: "صناعي في معظمه. الألياف الصناعية عادةً أقل تهوية وتحتفظ برطوبة أكثر من القطن أو الكتان، فتبقى المنطقة أدفأ خاصة في حرارة الإمارات. الأثر بمفرده صغير؛ والمقاس أهم.",
+      polyester_static: "ربطت دراستان صغيرتان من التسعينيات بين الملابس الداخلية من البوليستر وانخفاض عدد الحيوانات المنوية، ربما بسبب الكهرباء الساكنة. لم تُكرَّرا، لذا فهذا مؤشر ضعيف.",
+      microplastics: "ملاحظة احترازية: وُجد BPA في بعض الملابس الرياضية من البوليستر والسباندكس، ووُجدت جسيمات بلاستيكية دقيقة في الخصيتين لدى البشر. لا يوجد دليل على أن ارتداء الملابس الصناعية يُدخل البلاستيك إلى الدم؛ فمعظم التعرض يأتي من الطعام والماء والهواء.",
+      good_choice: "ألياف جيدة التهوية ومقاس مريح — اختيار يومي جيد.",
+      kandura: "الكندورة فضفاضة، لذا فقماشها قليل التأثير على الحرارة. ما ترتديه تحتها أهم." },
+    swaps: { looser_cut: "اختر قصّة أوسع (بوكسر، سروال، بنطال مريح).", natural_fibre: "للقطع الملاصقة للجلد، اختر ٩٠٪ أو أكثر من القطن أو الكتان أو الليوسيل (تنسل) أو المودال.", change_after_gym: "مناسب للتمرين — بدّل الملابس الرياضية المبللة بالعرق بعده بوقت قصير." },
+    swapsT: "بدائل بسيطة", disc: "معلومات صحية عامة وليست تشخيصاً. الملابس عامل صغير وقابل للتغيير." },
+};
+let REFS = {};
+function render() {
+  applyLang();
+  const L = F[LANG];
+  $("#brand").textContent = t("app"); $("#langBtn").textContent = t("lang"); $("#exitBtn").textContent = t("exit");
+  $("#view").innerHTML = `<h1>${L.title}</h1><p class="muted">${L.sub}</p><div class="card">
+    <label class="q">${L.label}</label><textarea id="comp" rows="2" dir="ltr">60% Polyester 35% Viscose 5% Elastane</textarea>
+    <label class="q">${L.photo}</label><input type="file" id="photo" accept="image/*" capture="environment"><div id="ocr" class="muted small"></div>
+    <div class="grid2"><div><label class="q">${L.garment}</label><select id="garment">${Object.entries(L.g).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+    <div><label class="q">${L.fit}</label><select id="fit">${Object.entries(L.f).map(([k, v]) => `<option value="${k}" ${k === "regular" ? "selected" : ""}>${v}</option>`).join("")}</select></div></div>
+    <p><button class="btn" id="go">${L.check}</button></p><div id="out"></div></div><p class="muted small">${L.disc}</p>`;
+  $("#go").onclick = check;
+  $("#photo").onchange = ocr;
+}
+async function check() {
+  const L = F[LANG];
+  const r = await API.post("/api/fabric", { text: $("#comp").value, garment: $("#garment").value, fit: $("#fit").value });
+  if (!r.ok) { $("#out").textContent = r.message; return; }
+  const col = { good: "var(--good)", okay: "var(--warn)", caution: "var(--alert)" }[r.verdict];
+  $("#out").innerHTML = `<h2 style="color:${col}">${L.v[r.verdict]}</h2>
+    <div class="progress" style="height:10px"><div style="width:${r.score}%;background:${col}"></div></div>
+    <p class="muted small">${L.index} ${r.score}/100 · ${L.breath} ${Math.round(r.breathability * 100)}% · ${L.synth} ${Math.round(r.synthetic * 100)}% · ${L.read} ${Object.entries(r.composition).map(([k, v]) => v + "% " + k).join(", ")}</p>
+    ${r.notes.map(n => `<div class="plan-item">${gradeTag(n.grade)} ${L.notes[n.key]}<details class="small"><summary>sources</summary><ul>${n.refs.map(x => `<li>${esc(REFS[x] || x)}</li>`).join("")}</ul></details></div>`).join("")}
+    ${r.swaps.length ? `<h3>${L.swapsT}</h3><ul>${r.swaps.map(s => `<li>${L.swaps[s]}</li>`).join("")}</ul>` : ""}`;
+}
+async function ocr(e) {
+  const f = e.target.files[0]; if (!f) return; const L = F[LANG];
+  $("#ocr").textContent = L.reading;
+  try {
+    if (!window.Tesseract) await new Promise((ok, no) => { const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+    const { data } = await Tesseract.recognize(f, "eng+ara");
+    $("#comp").value = data.text.replace(/\s+/g, " ").trim(); $("#ocr").textContent = L.readOk;
+  } catch { $("#ocr").textContent = L.readErr; }
+}
+$("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); render(); };
+fetch("/api/graph").then(r => r.json()).then(g => REFS = g.references);
+render();
+</script>
+</body>
+</html>

@@ -443,6 +443,11 @@ def case(aid: str, clin=Depends(current_clinician)):
         ref = c.execute("SELECT * FROM referrals WHERE assessment_id=?", (aid,)).fetchone()
     db.audit(clin, "view_case", aid)
     result = security.unseal(row["result"])
+    answers = security.unseal(row["answers"]) or {}
+    if result and "models" not in result:
+        from . import ml, synth
+        result["models"] = {"uci_logistic": ml.predict(answers),
+                            "simulated_gbm": synth.explain(answers, result["instruments"], result.get("wearable"))}
     g = graph()
     return {"id": aid, "answers": security.unseal(row["answers"]), "result": result,
             "referral": {k: ref[k] for k in ref.keys() if k != "note"} if ref else None,

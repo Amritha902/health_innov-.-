@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Male Health Causal Map</title>
+<title>Riaya Causal Map</title>
 <style>
 :root{--bg:#f7f7f5;--panel:#fff;--ink:#1d2327;--muted:#5f6b73;--line:#d9dde0;
  --exposure:#2f7d6d;--condition:#c27a1a;--mechanism:#6a55b5;--outcome:#c0392b;--protect:#2b7bd6;--hl:#111}
@@ -55,8 +55,8 @@ details{font-size:12px;color:var(--muted)}
 </head>
 <body>
 <header>
-  <h1>Male Reproductive Health — Causal Map</h1>
-  <nav><button data-tab="graph" class="on">Causal graph</button> <button data-tab="fabric">Fabric check</button></nav>
+  <h1>Riaya — Causal Map</h1>
+  <nav><a href="index.html">App</a> · <a href="fabric.html">Clothing check</a> · <a href="clinician.html">Clinician</a></nav>
 </header>
 
 <main id="graph" class="on">
@@ -86,39 +86,18 @@ details{font-size:12px;color:var(--muted)}
   </div>
 </main>
 
-<main id="fabric">
-  <div class="card">
-    <h2 style="margin-top:0">Fabric check</h2>
-    <p class="note">Paste or photograph a care label. We estimate how much the garment may warm the groin, which is the factor with the strongest evidence, and add notes on the fibres.</p>
-    <label>Care-label composition</label>
-    <textarea id="comp" rows="2">60% Polyester 35% Viscose 5% Elastane</textarea>
-    <label>…or photo of the label (read on your device; the photo is not uploaded)</label>
-    <input type="file" id="photo" accept="image/*" capture="environment">
-    <div id="ocrStatus" class="note"></div>
-    <div class="row">
-      <div><label>Garment</label><select id="garment"></select></div>
-      <div><label>Fit</label><select id="fit"><option value="tight">Tight / close-fitting</option><option value="regular" selected>Regular</option><option value="loose">Loose</option></select></div>
-    </div>
-    <button class="btn" id="check">Check</button>
-    <div id="fabricOut"></div>
-    <p class="disc">This is general wellness information, not a diagnosis. Clothing is one small, reversible factor. If you have concerns about fertility, the app will guide you to the right next step.</p>
-  </div>
-</main>
 
-<script src="knowledge/graph.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/fabric.js"></script>
 <script src="vendor/d3-7.8.5.min.js"></script>
+<script src="js/engine.js"></script>
 <script>
+(async () => {
+const KG = await (await fetch("/api/graph")).json();
 const byId = Object.fromEntries(KG.nodes.map(n => [n.id, n]));
 const ref = r => KG.references[r] || r;
 const gradeTag = g => `<span class="g g${g}">${g}</span>`;
 
 // ---------- tabs ----------
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("nav button,main").forEach(x => x.classList.remove("on"));
-  b.classList.add("on"); document.getElementById(b.dataset.tab).classList.add("on");
-});
+
 
 // ---------- graph ----------
 const color = n => n.protective ? "var(--protect)" : `var(--${n.type})`;
@@ -132,7 +111,7 @@ const colX = { exposure: 0.12, condition: 0.38, mechanism: 0.62, outcome: 0.88 }
 let link, node, sim;
 document.getElementById("nodeList").innerHTML = KG.nodes.map(n => `<option value="${n.label}">`).join("");
 document.getElementById("stats").textContent =
-  `${KG.nodes.length} factors · ${KG.edges.length} cited links · ${Object.keys(KG.references).length} sources · ${KG.redFlags.length} red flags`;
+  `${KG.nodes.length} factors · ${KG.edges.length} cited links · ${Object.keys(KG.references).length} sources · ${KG.redFlags.length} red flags · ${KG.signals.length} measurable signals`;
 
 function draw() {
   const strong = document.getElementById("strong").checked;
@@ -192,30 +171,7 @@ document.getElementById("strong").onchange = draw;
 document.getElementById("reset").onclick = () => { node.classed("dim", false); link.classed("dim", false); };
 draw(); addEventListener("resize", () => { clearTimeout(window._r); window._r = setTimeout(draw, 200); });
 
-// ---------- fabric ----------
-document.getElementById("garment").innerHTML = Object.entries(Fabric.GARMENTS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
-document.getElementById("check").onclick = () => {
-  const r = Fabric.assess(document.getElementById("comp").value, document.getElementById("garment").value, document.getElementById("fit").value);
-  const out = document.getElementById("fabricOut");
-  if (!r.ok) { out.innerHTML = `<p>${r.message}</p>`; return; }
-  const label = { good: "Good choice", okay: "Okay", caution: "Consider an alternative" }[r.verdict];
-  out.innerHTML = `<div class="verdict v-${r.verdict}">${label}</div>
-    <div class="meter"><div style="width:${r.score}%;background:var(--${r.verdict === "good" ? "exposure" : r.verdict === "okay" ? "condition" : "outcome"})"></div></div>
-    <p class="note">Groin-heat index ${r.score}/100 · breathability ${Math.round(r.breathability * 100)}% · synthetic ${Math.round(r.synthetic * 100)}% · read as ${Object.entries(r.composition).map(([k, v]) => v + "% " + k).join(", ")}</p>
-    ${r.notes.map(n => `<div class="edge">${gradeTag(n.grade)} ${n.text}<details><summary>Sources</summary>${n.refs.map(ref).join("<br>")}</details></div>`).join("")}
-    ${r.swaps.length ? `<h3 style="font-size:14px">Simple swaps</h3><ul>${r.swaps.map(s => `<li>${s}</li>`).join("")}</ul>` : ""}
-    <p class="note">In the causal graph: <a href="#" onclick="document.querySelector('[data-tab=graph]').click();select('scrotal_heat');return false">Raised scrotal temperature →</a></p>`;
-};
-document.getElementById("photo").onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  const s = document.getElementById("ocrStatus"); s.textContent = "Reading label…";
-  try {
-    if (!window.Tesseract) await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-    const { data } = await Tesseract.recognize(f, "eng");
-    document.getElementById("comp").value = data.text.replace(/\s+/g, " ").trim();
-    s.textContent = "Label read. Check the text above, then press Check.";
-  } catch { s.textContent = "Couldn't read the photo. Please type the composition."; }
-};
+})();
 </script>
 </body>
 </html>

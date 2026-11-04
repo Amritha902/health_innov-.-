@@ -1,0 +1,3 @@
+date,sleep_hours,steps,resting_hr,hrv_ms,spo2_min,screen_min,screen_bed_min
+2026-10-01,6.5,7200,62,48,94,210,45
+2026-10-02,5.8,5100,64,41,92,260,60

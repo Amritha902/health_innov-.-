@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Riaya Clinician Console</title>
+<link rel="stylesheet" href="css/app.css">
+<style>
+.layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+.qitem { padding: 10px; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0; cursor: pointer; background: var(--bg); }
+.qitem.on { border-color: var(--brand); }
+.bar { height: 14px; background: var(--brand); border-radius: 3px; }
+.bar.neg { background: var(--info); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 14px; }
+.tabs button { margin-inline-end: 6px; }
+.tabs button.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+svg text { fill: var(--ink); font: 12px var(--font); }
+.stat { font-size: 26px; font-weight: 700; }
+</style>
+</head>
+<body>
+<header class="top"><div class="brand"><i></i>Riaya · Clinician console</div><div class="spacer"></div>
+  <span class="muted" id="who"></span><button class="chip hidden" id="logout">Sign out</button></header>
+<main class="wrap wide" id="view"></main>
+<script src="js/common.js"></script>
+<script src="js/clinician.js"></script>
+</body>
+</html>

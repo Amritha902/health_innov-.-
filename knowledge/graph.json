@@ -5,14 +5,16 @@
    "label": "Sedentary lifestyle / prolonged sitting",
    "type": "exposure",
    "modifiable": true,
-   "group": "lifestyle"
+   "group": "lifestyle",
+   "label_ar": "قلة الحركة / الجلوس الطويل"
   },
   {
    "id": "western_diet",
    "label": "Western diet (processed meat, sugar, trans fat)",
    "type": "exposure",
    "modifiable": true,
-   "group": "lifestyle"
+   "group": "lifestyle",
+   "label_ar": "النظام الغذائي الغربي (لحوم مصنعة، سكر، دهون متحولة)"
   },
   {
    "id": "prudent_diet",
@@ -20,14 +22,16 @@
    "type": "exposure",
    "modifiable": true,
    "group": "lifestyle",
-   "protective": true
+   "protective": true,
+   "label_ar": "نظام غذائي صحي (سمك، خضار، فواكه، حبوب كاملة)"
   },
   {
    "id": "smoking",
    "label": "Cigarette smoking",
    "type": "exposure",
    "modifiable": true,
-   "group": "substances"
+   "group": "substances",
+   "label_ar": "تدخين السجائر"
   },
   {
    "id": "waterpipe",
@@ -35,7 +39,8 @@
    "type": "exposure",
    "modifiable": true,
    "group": "substances",
-   "local": "UAE-relevant"
+   "local": "UAE-relevant",
+   "label_ar": "الشيشة / المدواخ (الدوخة)"
   },
   {
    "id": "alcohol",
@@ -43,7 +48,8 @@
    "type": "exposure",
    "modifiable": true,
    "group": "substances",
-   "sensitive": true
+   "sensitive": true,
+   "label_ar": "الكحول"
   },
   {
    "id": "cannabis",
@@ -51,14 +57,16 @@
    "type": "exposure",
    "modifiable": true,
    "group": "substances",
-   "sensitive": true
+   "sensitive": true,
+   "label_ar": "القنب"
   },
   {
    "id": "opioids",
    "label": "Opioids (prescribed or not)",
    "type": "exposure",
    "modifiable": true,
-   "group": "substances"
+   "group": "substances",
+   "label_ar": "الأفيونات"
   },
   {
    "id": "aas",
@@ -66,77 +74,88 @@
    "type": "exposure",
    "modifiable": true,
    "group": "substances",
-   "local": "high gym-culture relevance"
+   "local": "high gym-culture relevance",
+   "label_ar": "المنشطات البنائية / التستوستيرون"
   },
   {
    "id": "medications",
    "label": "Certain medications (e.g. some SSRIs, 5-ARIs, sulfasalazine)",
    "type": "exposure",
    "modifiable": true,
-   "group": "medical"
+   "group": "medical",
+   "label_ar": "بعض الأدوية"
   },
   {
    "id": "caffeine_late",
    "label": "Caffeine late in the day",
    "type": "exposure",
    "modifiable": true,
-   "group": "sleep"
+   "group": "sleep",
+   "label_ar": "الكافيين في وقت متأخر"
   },
   {
    "id": "screen_night",
    "label": "Night-time screen use",
    "type": "exposure",
    "modifiable": true,
-   "group": "sleep"
+   "group": "sleep",
+   "label_ar": "الشاشات ليلاً"
   },
   {
    "id": "shift_work",
    "label": "Night-shift work / irregular schedule",
    "type": "exposure",
    "modifiable": true,
-   "group": "sleep"
+   "group": "sleep",
+   "label_ar": "العمل الليلي / المناوبات"
   },
   {
    "id": "psych_stress",
    "label": "Psychological stress (work, family, life events)",
    "type": "exposure",
    "modifiable": true,
-   "group": "mind"
+   "group": "mind",
+   "label_ar": "الضغط النفسي"
   },
   {
    "id": "phone_pocket",
    "label": "Phone in trouser pocket (RF-EMR near groin)",
    "type": "exposure",
    "modifiable": true,
-   "group": "devices"
+   "group": "devices",
+   "label_ar": "الهاتف في جيب البنطال"
   },
   {
    "id": "laptop_lap",
    "label": "Laptop on lap",
    "type": "exposure",
    "modifiable": true,
-   "group": "devices"
+   "group": "devices",
+   "label_ar": "الحاسوب المحمول على الحضن"
   },
   {
    "id": "hot_bath",
    "label": "Hot tubs / sauna / very hot baths",
    "type": "exposure",
    "modifiable": true,
-   "group": "heat"
+   "group": "heat",
+   "label_ar": "الساونا / الجاكوزي / الحمامات الساخنة"
   },
   {
    "id": "tight_underwear",
    "label": "Tight underwear / tight trousers",
    "type": "exposure",
    "modifiable": true,
-   "group": "clothing"
+   "group": "clothing",
+   "label_ar": "الملابس الداخلية أو البناطيل الضيقة"
   },
   {
    "id": "synthetic_textile",
    "label": "Synthetic fabric next to groin (polyester, nylon, elastane)",
    "type": "exposure",
    "modifiable": true,
-   "group": "clothing"
+   "group": "clothing",
+   "label_ar": "أقمشة صناعية ملاصقة للحوض"
   },
   {
    "id": "occupational_heat",
@@ -144,21 +163,24 @@
    "type": "exposure",
    "modifiable": true,
    "group": "heat",
-   "local": "UAE climate"
+   "local": "UAE climate",
+   "label_ar": "الحرارة في العمل / القيادة الطويلة"
   },
   {
    "id": "edc",
    "label": "Endocrine disruptors (BPA, phthalates, pesticides)",
    "type": "exposure",
    "modifiable": true,
-   "group": "environment"
+   "group": "environment",
+   "label_ar": "المواد المعطّلة للهرمونات"
   },
   {
    "id": "microplastics",
    "label": "Micro/nanoplastic exposure (food, water, air)",
    "type": "exposure",
    "modifiable": true,
-   "group": "environment"
+   "group": "environment",
+   "label_ar": "الجسيمات البلاستيكية الدقيقة"
   },
   {
    "id": "low_sun",
@@ -166,14 +188,16 @@
    "type": "exposure",
    "modifiable": true,
    "group": "lifestyle",
-   "local": "common in UAE despite sunshine"
+   "local": "common in UAE despite sunshine",
+   "label_ar": "قلة التعرض للشمس"
   },
   {
    "id": "paternal_age",
    "label": "Age > 40",
    "type": "exposure",
    "modifiable": false,
-   "group": "history"
+   "group": "history",
+   "label_ar": "العمر فوق ٤٠"
   },
   {
    "id": "consanguinity",
@@ -182,84 +206,97 @@
    "modifiable": false,
    "group": "history",
    "sensitive": true,
-   "local": "high regional prevalence"
+   "local": "high regional prevalence",
+   "label_ar": "التاريخ العائلي / القرابة"
   },
   {
    "id": "mumps",
    "label": "Mumps after puberty (orchitis)",
    "type": "exposure",
    "modifiable": false,
-   "group": "history"
+   "group": "history",
+   "label_ar": "النكاف بعد البلوغ"
   },
   {
    "id": "cryptorchidism",
    "label": "Undescended testis in childhood",
    "type": "exposure",
    "modifiable": false,
-   "group": "history"
+   "group": "history",
+   "label_ar": "الخصية المعلقة في الطفولة"
   },
   {
    "id": "chemo",
    "label": "Chemotherapy / radiotherapy",
    "type": "exposure",
    "modifiable": false,
-   "group": "history"
+   "group": "history",
+   "label_ar": "العلاج الكيميائي / الإشعاعي"
   },
   {
    "id": "recent_fever",
    "label": "High fever in the last 3 months",
    "type": "exposure",
    "modifiable": false,
-   "group": "history"
+   "group": "history",
+   "label_ar": "حمى مرتفعة خلال ٣ أشهر"
   },
   {
    "id": "obesity",
    "label": "Obesity / central adiposity",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "زيادة الوزن / دهون البطن"
   },
   {
    "id": "diabetes",
    "label": "Insulin resistance / type 2 diabetes",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "مقاومة الإنسولين / السكري"
   },
   {
    "id": "osa",
    "label": "Obstructive sleep apnoea",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "انقطاع النفس أثناء النوم"
   },
   {
    "id": "sleep_loss",
    "label": "Short or poor sleep (< 6 h)",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "قلة النوم أو ضعف جودته"
   },
   {
    "id": "circadian",
    "label": "Circadian misalignment",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "اضطراب الساعة البيولوجية"
   },
   {
    "id": "vitd_def",
    "label": "Vitamin D deficiency",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "نقص فيتامين د"
   },
   {
    "id": "scrotal_heat",
    "label": "Raised scrotal temperature",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "ارتفاع حرارة كيس الصفن"
   },
   {
    "id": "varicocele",
    "label": "Varicocele",
    "type": "condition",
    "modifiable": true,
-   "treatable": true
+   "treatable": true,
+   "label_ar": "دوالي الخصية"
   },
   {
    "id": "genital_infection",
@@ -267,174 +304,205 @@
    "type": "condition",
    "modifiable": true,
    "treatable": true,
-   "sensitive": true
+   "sensitive": true,
+   "label_ar": "التهاب الجهاز التناسلي"
   },
   {
    "id": "hypogonadism",
    "label": "Low testosterone (hypogonadism)",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "انخفاض التستوستيرون"
   },
   {
    "id": "ed",
    "label": "Erectile / ejaculatory dysfunction",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "ضعف الانتصاب أو القذف"
   },
   {
    "id": "genetic",
    "label": "Genetic factors (Klinefelter, Y-microdeletion, CFTR)",
    "type": "condition",
-   "modifiable": false
+   "modifiable": false,
+   "label_ar": "عوامل وراثية"
   },
   {
    "id": "ros",
    "label": "Oxidative stress (ROS)",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "الإجهاد التأكسدي"
   },
   {
    "id": "hpg_supp",
    "label": "HPG-axis suppression (low GnRH/LH/FSH)",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "تثبيط محور الهرمونات"
   },
   {
    "id": "glucocorticoid",
    "label": "Cortisol elevation (HPA axis)",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "ارتفاع الكورتيزول"
   },
   {
    "id": "aromatization",
    "label": "Testosterone→estradiol conversion (aromatase)",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "تحوّل التستوستيرون إلى إستروجين"
   },
   {
    "id": "inflammation",
    "label": "Systemic / local inflammation",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "الالتهاب"
   },
   {
    "id": "hypoxia",
    "label": "Intermittent hypoxia",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "نقص الأكسجين المتقطع"
   },
   {
    "id": "mito",
    "label": "Mitochondrial dysfunction",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "خلل الميتوكوندريا"
   },
   {
    "id": "melatonin_supp",
    "label": "Melatonin suppression",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "تثبيط الميلاتونين"
   },
   {
    "id": "antiandrogen",
    "label": "Androgen-signalling disruption",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "اضطراب إشارات الأندروجين"
   },
   {
    "id": "electrostatic",
    "label": "Electrostatic field from synthetic fabric",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "الكهرباء الساكنة من الأقمشة الصناعية"
   },
   {
    "id": "epigenetic",
    "label": "Sperm epigenetic changes (DNA methylation)",
-   "type": "mechanism"
+   "type": "mechanism",
+   "label_ar": "تغيرات فوق جينية في الحيوانات المنوية"
   },
   {
    "id": "low_count",
    "label": "Lower sperm count / concentration",
-   "type": "outcome"
+   "type": "outcome",
+   "label_ar": "انخفاض عدد الحيوانات المنوية"
   },
   {
    "id": "low_motility",
    "label": "Lower sperm motility",
-   "type": "outcome"
+   "type": "outcome",
+   "label_ar": "ضعف حركة الحيوانات المنوية"
   },
   {
    "id": "abn_morph",
    "label": "Abnormal sperm morphology",
-   "type": "outcome"
+   "type": "outcome",
+   "label_ar": "تشوه شكل الحيوانات المنوية"
   },
   {
    "id": "dna_frag",
    "label": "Sperm DNA fragmentation",
-   "type": "outcome"
+   "type": "outcome",
+   "label_ar": "تكسّر الحمض النووي للحيوانات المنوية"
   },
   {
    "id": "low_volume",
    "label": "Lower semen volume",
-   "type": "outcome"
+   "type": "outcome",
+   "label_ar": "انخفاض حجم السائل المنوي"
   },
   {
    "id": "azoospermia",
    "label": "Azoospermia (no sperm)",
-   "type": "outcome"
+   "type": "outcome",
+   "label_ar": "انعدام الحيوانات المنوية"
   },
   {
    "id": "subfertility",
    "label": "Reduced fertility / longer time-to-pregnancy",
    "type": "outcome",
-   "terminal": true
+   "terminal": true,
+   "label_ar": "انخفاض الخصوبة / تأخر الحمل"
   },
   {
    "id": "art_outcome",
    "label": "Poorer IVF/ICSI outcomes",
    "type": "outcome",
-   "terminal": true
+   "terminal": true,
+   "label_ar": "نتائج أضعف لأطفال الأنابيب"
   },
   {
    "id": "offspring",
    "label": "Possible offspring health effects",
    "type": "outcome",
-   "terminal": true
+   "terminal": true,
+   "label_ar": "تأثيرات محتملة على صحة الأبناء"
   },
   {
    "id": "general_health",
    "label": "Marker of wider health (CVD, mortality)",
    "type": "outcome",
-   "terminal": true
+   "terminal": true,
+   "label_ar": "مؤشر على الصحة العامة"
   },
   {
    "id": "testis_cancer",
    "label": "Testicular cancer risk",
    "type": "outcome",
-   "terminal": true
+   "terminal": true,
+   "label_ar": "خطر سرطان الخصية"
   },
   {
    "id": "screen_time_high",
    "label": "High daily recreational screen time",
    "type": "exposure",
    "modifiable": true,
-   "group": "devices"
+   "group": "devices",
+   "label_ar": "وقت شاشة يومي مرتفع"
   },
   {
    "id": "late_eating",
    "label": "Late meals / sugary drinks late in the evening",
    "type": "exposure",
    "modifiable": true,
-   "group": "lifestyle"
+   "group": "lifestyle",
+   "label_ar": "الوجبات أو المشروبات السكرية المتأخرة"
   },
   {
    "id": "glycaemic_spikes",
    "label": "Glucose spikes / high glycaemic variability",
    "type": "condition",
-   "modifiable": true
+   "modifiable": true,
+   "label_ar": "ارتفاعات سكر الدم"
   },
   {
    "id": "eye_strain",
    "label": "Digital eye strain",
    "type": "outcome",
    "terminal": true,
-   "scope": "non-reproductive"
+   "scope": "non-reproductive",
+   "label_ar": "إجهاد العين الرقمي"
   },
   {
    "id": "low_mood",
    "label": "Low mood / anxiety",
    "type": "condition",
    "modifiable": true,
-   "sensitive": true
+   "sensitive": true,
+   "label_ar": "انخفاض المزاج / القلق"
   }
  ],
  "edges": [

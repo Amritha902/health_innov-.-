@@ -33,10 +33,10 @@ def interpret_lab(r):
         findings.append(("severe_oligo", f"Concentration {conc} M/mL (well below 16)", "high"))
         inputs.append(("low_count", 1.0, f"Lab: concentration {conc} M/mL", "lab"))
     elif (conc is not None and conc < WHO_2021["concentration_m_per_ml"]) or (total is not None and total < WHO_2021["total_count_m"]):
-        findings.append(("oligo", f"Count below reference (concentration {conc}, total {total and round(total)})", "moderate"))
+        findings.append(("oligo", "Count below reference (" + ", ".join(x for x in (conc is not None and f"concentration {conc:g} M/mL", total is not None and f"total {round(total)} M") if x) + ")", "moderate"))
         inputs.append(("low_count", 0.7, "Lab: count below WHO reference", "lab"))
     if pr is not None and pr < WHO_2021["progressive_motility_pct"] or tm is not None and tm < WHO_2021["total_motility_pct"]:
-        findings.append(("astheno", f"Motility below reference (progressive {pr}%, total {tm}%)", "moderate"))
+        findings.append(("astheno", "Motility below reference (" + ", ".join(x for x in (pr is not None and f"progressive {pr:g}%", tm is not None and f"total {tm:g}%") if x) + ")", "moderate"))
         inputs.append(("low_motility", 0.7, "Lab: motility below WHO reference", "lab"))
     if morph is not None and morph < WHO_2021["normal_forms_pct"]:
         findings.append(("terato", f"Normal forms {morph}% (reference ≥ 4%)", "low"))
