@@ -31,7 +31,7 @@ Men in Abu Dhabi usually reach fertility care late: after months of trying, and 
 
 - **Lab report reader:** upload a semen-analysis or hormone report (PDF, text, or a photo read on the phone). Riaya extracts each value with its unit, reference range and date, flags implausible values, and saves nothing until he confirms. The file is never kept.
 - **Explained findings:** every finding has an observation, why it matters (a pathway in the evidence map), the evidence grade and sources, one recommendation, and its limitations. Unknown data is shown as unknown, never as normal.
-- **Contradiction checks:** for example, reported sleep against the watch, "no diabetes" against an HbA1c of 6.9%, or low testosterone with suppressed LH when no steroid use was reported. These are flagged for a gentle conversation, never auto-resolved.
+- **Contradiction checks:** for example, reported sleep against the watch, "no diabetes" against an HbA1c of 6.9%, or low testosterone with suppressed LH when no steroid use was reported. Scoring follows one fixed rule (a measured value is used over a self-report), and every disagreement is still shown to him and the clinician for a gentle conversation. None is silently hidden.
 - **His own baseline:** his last week compared with his earlier weeks, not just population cut-offs.
 - **What-if simulator:** an educational scenario showing how much of today's signal comes from the habits he chooses to change. It is not a fertility prediction.
 - **My Reproductive Health Journey:** every check, tests already done, the next step, what changed since last time, and a follow-up reminder. He can report "booked", "went" or "couldn't go", and why.
@@ -67,11 +67,13 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 Open http://localhost:8000. To enable the local-only demo clinician account, set `RIAYA_ENABLE_DEMO_CLINICIAN=true` before starting the server; the demo login is `clinician` / `demo-clinician`. Never enable this on a public deployment. Also `/chat.html`, `/whatsapp.html`, `/graph.html`, `/fabric.html`, and API docs at `/api/docs`.
 
 ```bash
-.venv/bin/python -m pytest -q                               # 23 end-to-end tests (SQLite; set DATABASE_URL to run on Postgres)
+.venv/bin/python -m pytest -q                               # 25 end-to-end tests (SQLite; set DATABASE_URL to run on Postgres)
 .venv/bin/python validation/run_validation.py --seed-demo   # validation report + simulated cases for the console
 ```
 
-**Deploy:** `render.yaml` deploys the app to Render without seeding simulated cases or creating a default clinician account. Before any real pilot, configure a managed Postgres database (`DATABASE_URL`), a strong unique `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD`, and a securely generated `RIAYA_DATA_KEY`. The free Render filesystem is ephemeral; do not rely on local SQLite for durable records. Do not collect real patient data until UAE hosting, health-data compliance, clinical governance and security review are confirmed. Optional settings:
+**Doctor sign-in security:** passwords are stored with PBKDF2-SHA256 (310,000 rounds). Five failed attempts in 15 minutes lock the account and source address, and a failed login gives the same response whether or not the username exists. Sessions end after 8 hours, or after 30 minutes without activity, and signing out ends the session on the server. Changing the password ends every other session. A deployed doctor account is only created if its password is strong: at least 12 varied characters, not containing the username, and not a common password. Every sign-in, failure, lockout, case view and decision is in the access log. Patients never have accounts; a random device token links their data, and their token cannot reach any doctor endpoint.
+
+**Deploy:** `render.yaml` deploys the app to Render with a managed Postgres database and a generated encryption key and phone-hash salt, without seeding simulated cases or creating a default clinician account. Render asks you for `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD` when you apply the blueprint. Before any real pilot, configure a managed Postgres database (`DATABASE_URL`), a strong unique `RIAYA_CLINICIAN_USER` and `RIAYA_CLINICIAN_PASSWORD`, and a securely generated `RIAYA_DATA_KEY`. The free Render filesystem is ephemeral; do not rely on local SQLite for durable records. Do not collect real patient data until UAE hosting, health-data compliance, clinical governance and security review are confirmed. Optional settings:
 
 | Setting | Purpose |
 |---|---|

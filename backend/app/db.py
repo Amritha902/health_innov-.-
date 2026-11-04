@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS clinicians (
   username TEXT PRIMARY KEY, salt TEXT NOT NULL, pw_hash TEXT NOT NULL, display_name TEXT);
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS login_attempts (
+  username TEXT NOT NULL, ip TEXT NOT NULL, ts REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS audit (
   ts REAL NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT);
 CREATE TABLE IF NOT EXISTS events (
@@ -134,6 +136,7 @@ def tx():
 MIGRATIONS = {
     "assessments": [("labs", "BLOB"), ("channel", "TEXT")],
     "messages": [("audio", "BLOB"), ("mime", "TEXT"), ("seconds", "REAL")],
+    "sessions": [("last_seen", "REAL")],
     "referrals": [("rapid", "INTEGER DEFAULT 0"), ("due_at", "REAL"), ("video_url", "TEXT"), ("handover_at", "REAL"),
                   ("tests_done_at", "REAL"), ("followup_at", "REAL"), ("barrier", "TEXT"), ("self_reported", "INTEGER DEFAULT 0"), ("override_reason", "TEXT")],
 }

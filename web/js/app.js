@@ -295,7 +295,7 @@ function tests() {
       let r;
       if (file.type.startsWith("image/")) {
         if (!window.Tesseract) await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-        const { data } = await Tesseract.recognize(file, "eng");
+        const { data } = await Tesseract.recognize(file, "eng+ara");
         const f = new FormData(); f.append("text", data.text);
         r = await API.req("POST", `/api/assessments/${S.aid}/lab-report`, f, true);
       } else r = await API.upload(`/api/assessments/${S.aid}/lab-report`, file);

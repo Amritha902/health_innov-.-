@@ -19,7 +19,7 @@ function login() {
 
 async function start() {
   $("#logout").classList.remove("hidden");
-  $("#logout").onclick = () => { sessionStorage.removeItem("ctoken"); location.reload(); };
+  $("#logout").onclick = async () => { try { await API.post("/api/clinician/logout"); } catch {} sessionStorage.removeItem("ctoken"); location.reload(); };
   GRAPH = GRAPH || await API.get("/api/graph");
   $("#view").innerHTML = `<div class="tabs row" style="margin-bottom:12px">
     <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
@@ -241,8 +241,17 @@ async function metrics() {
 
 async function audit() {
   const rows = await API.get("/api/clinician/audit");
-  $("#tab").innerHTML = `<div class="card"><h2>Access log</h2><table><tr><th>Time</th><th>Who</th><th>Action</th><th>Case</th></tr>
+  $("#tab").innerHTML = `<div class="card" style="max-width:520px"><h2>Change password</h2>
+    <input type="password" id="pwOld" placeholder="Current password" autocomplete="current-password">
+    <input type="password" id="pwNew" placeholder="New password (12+ characters)" autocomplete="new-password" style="margin-top:8px">
+    <p class="row"><button class="btn" id="pwGo">Update password</button><span class="small" id="pwMsg"></span></p>
+    <p class="muted small">Changing it signs out every other session. Sessions also end after 30 minutes without activity.</p></div>
+    <div class="card"><h2>Access log</h2><table><tr><th>Time</th><th>Who</th><th>Action</th><th>Case</th></tr>
     ${rows.map(r => `<tr><td>${fmt(r.ts)}</td><td>${esc(r.actor)}</td><td>${esc(r.action)}</td><td class="small">${esc(r.target || "")}</td></tr>`).join("")}</table></div>`;
+  $("#pwGo").onclick = async () => {
+    try { await API.post("/api/clinician/password", { current: $("#pwOld").value, new: $("#pwNew").value }); $("#pwMsg").textContent = "Updated."; $("#pwOld").value = $("#pwNew").value = ""; }
+    catch (e) { $("#pwMsg").textContent = e.message; }
+  };
 }
 
 API.token = sessionStorage.getItem("ctoken");

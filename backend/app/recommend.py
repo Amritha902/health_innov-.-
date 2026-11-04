@@ -116,7 +116,8 @@ def data_coverage(answers, wearable, semen, labs, lang="en"):
 
 
 def contradictions(answers, wearable, semen, labs, lang="en"):
-    """Disagreements between what he reported and what devices or labs show. Flagged for discussion, never auto-resolved."""
+    """Disagreements between what he reported and what devices or labs show. One fixed rule applies to scoring: a measured value
+    (device or lab) is used over a self-report. Every disagreement is still shown to him and the clinician for discussion; none is hidden."""
     a, w, lv = answers or {}, wearable or {}, (labs or {}).get("values", {})
     out = []
 
@@ -125,8 +126,8 @@ def contradictions(answers, wearable, semen, labs, lang="en"):
 
     try:
         if w.get("sleep_avg_h") and a.get("sleep_h") not in (None, "", "skip") and abs(float(a["sleep_h"]) - w["sleep_avg_h"]) >= 1.5:
-            add("sleep", f"Reported sleep ({a['sleep_h']} h) differs from the watch ({w['sleep_avg_h']} h). The watch value was used.",
-                f"النوم المُبلّغ ({a['sleep_h']} س) يختلف عن الساعة ({w['sleep_avg_h']} س). تم استخدام قيمة الساعة.")
+            add("sleep", f"Reported sleep ({a['sleep_h']} h) differs from the watch ({w['sleep_avg_h']} h). The score uses the measured value; worth checking which reflects a typical week.",
+                f"النوم المُبلّغ ({a['sleep_h']} س) يختلف عن الساعة ({w['sleep_avg_h']} س). يعتمد التقييم على القيمة المقاسة؛ يستحق التأكد أيهما يعكس أسبوعاً معتاداً.")
     except (TypeError, ValueError):
         pass
     a1c = lv.get("hba1c")

@@ -14,7 +14,12 @@ KEY_FILE = ROOT / "data" / "secret.key"
 def _key():
     env = os.environ.get("RIAYA_DATA_KEY")
     if env:
-        return env.encode()
+        try:
+            Fernet(env.encode())
+            return env.encode()
+        except ValueError:  # any other strong secret (e.g. a platform-generated value) is turned into a valid key
+            import base64
+            return base64.urlsafe_b64encode(hashlib.sha256(env.encode()).digest())
     KEY_FILE.parent.mkdir(exist_ok=True)
     if not KEY_FILE.exists():
         KEY_FILE.write_bytes(Fernet.generate_key())
@@ -61,3 +66,18 @@ def hash_password(pw, salt=None):
 
 def check_password(pw, salt, expected):
     return hmac.compare_digest(hash_password(pw, salt)[1], expected)
+
+
+COMMON = {"password", "password1", "12345678", "123456789", "qwerty", "letmein", "welcome", "clinician", "demo-clinician", "admin", "riaya"}
+
+
+def password_problem(pw, username=""):
+    """Returns a reason the password is too weak, or None."""
+    if len(pw) < 12:
+        return "Use at least 12 characters"
+    low = pw.lower()
+    if low in COMMON or (username and username.lower() in low):
+        return "Password is too easy to guess"
+    if len(set(pw)) < 6:
+        return "Use a more varied password"
+    return None

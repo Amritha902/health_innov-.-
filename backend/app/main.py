@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -31,6 +31,11 @@ def startup():
     user = os.environ.get("RIAYA_CLINICIAN_USER") or ("clinician" if demo_mode else None)
     pw = os.environ.get("RIAYA_CLINICIAN_PASSWORD") or ("demo-clinician" if demo_mode else None)
     if user and pw:
+        problem = None if demo_mode and not os.environ.get("RIAYA_CLINICIAN_PASSWORD") else security.password_problem(pw, user)
+        if problem:
+            # refuse to provision a weak account rather than run with it
+            print(f"[riaya] clinician account NOT created: {problem}", flush=True)
+            return
         with db.tx() as c:
             if not c.execute("SELECT 1 FROM clinicians WHERE username=?", (user,)).fetchone():
                 salt, h = security.hash_password(pw)
@@ -53,6 +58,9 @@ async def headers(request, call_next):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp
 
 
@@ -70,9 +78,15 @@ def current_user(authorization: str = Header(None)):
 def current_clinician(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing token")
+    now = time.time()
     with db.tx() as c:
-        row = c.execute("SELECT username FROM sessions WHERE token_hash=? AND expires_at>?",
-                        (security.token_hash(authorization[7:]), time.time())).fetchone()
+        row = c.execute("SELECT username, last_seen FROM sessions WHERE token_hash=? AND expires_at>?",
+                        (security.token_hash(authorization[7:]), now)).fetchone()
+        if row and row["last_seen"] and now - row["last_seen"] > IDLE_TIMEOUT:
+            c.execute("DELETE FROM sessions WHERE token_hash=?", (security.token_hash(authorization[7:]),))
+            row = None
+        elif row:
+            c.execute("UPDATE sessions SET last_seen=? WHERE token_hash=?", (now, security.token_hash(authorization[7:])))
     if not row:
         raise HTTPException(401, "Session expired")
     return row["username"]
@@ -405,17 +419,79 @@ class LoginIn(BaseModel):
     password: str
 
 
+SESSION_HOURS = 8
+IDLE_TIMEOUT = 30 * 60           # sign out after 30 minutes without activity
+MAX_FAILS, LOCK_WINDOW = 5, 15 * 60
+_DUMMY = security.hash_password("timing-equaliser")
+
+
 @app.post("/api/clinician/login")
-def login(body: LoginIn):
+def login(body: LoginIn, request: Request):
+    now = time.time()
+    ip = request.client.host if request.client else "?"
+    user = body.username.strip()[:80]
+    outcome, row, token = None, None, None
     with db.tx() as c:
-        row = c.execute("SELECT * FROM clinicians WHERE username=?", (body.username,)).fetchone()
-        if not row or not security.check_password(body.password, row["salt"], row["pw_hash"]):
-            db.audit(body.username, "login_failed")
-            raise HTTPException(401, "Invalid credentials")
-        token = security.new_token()
-        c.execute("INSERT INTO sessions VALUES (?,?,?)", (security.token_hash(token), body.username, time.time() + 8 * 3600))
-    db.audit(body.username, "login")
-    return {"token": token, "name": row["display_name"]}
+        c.execute("DELETE FROM sessions WHERE expires_at<?", (now,))
+        c.execute("DELETE FROM login_attempts WHERE ts<?", (now - LOCK_WINDOW,))
+        fails = c.execute("SELECT COUNT(*) FROM login_attempts WHERE (username=? OR ip=?) AND ts>?", (user, ip, now - LOCK_WINDOW)).fetchone()[0]
+        if fails >= MAX_FAILS:
+            outcome = "locked"
+        else:
+            row = c.execute("SELECT * FROM clinicians WHERE username=?", (user,)).fetchone()
+            # same work whether or not the user exists, so usernames cannot be discovered by timing
+            salt, expected = (row["salt"], row["pw_hash"]) if row else _DUMMY
+            if security.check_password(body.password, salt, expected) and row is not None:
+                c.execute("DELETE FROM login_attempts WHERE username=?", (user,))
+                token = security.new_token()
+                c.execute("INSERT INTO sessions (token_hash, username, expires_at, last_seen) VALUES (?,?,?,?)",
+                          (security.token_hash(token), user, now + SESSION_HOURS * 3600, now))
+                outcome = "ok"
+            else:
+                c.execute("INSERT INTO login_attempts VALUES (?,?,?)", (user, ip, now))
+                outcome = "failed"
+    # the transaction is committed before any error is raised, so failed attempts always count
+    if outcome == "locked":
+        db.audit(user, "login_locked")
+        raise HTTPException(429, "Too many attempts. Try again in 15 minutes.")
+    if outcome == "failed":
+        db.audit(user, "login_failed")
+        raise HTTPException(401, "Invalid username or password")
+    db.audit(user, "login")
+    return {"token": token, "name": row["display_name"], "expires_in": SESSION_HOURS * 3600, "idle_timeout": IDLE_TIMEOUT}
+
+
+@app.post("/api/clinician/logout")
+def logout(authorization: str = Header(None), clin=Depends(current_clinician)):
+    with db.tx() as c:
+        c.execute("DELETE FROM sessions WHERE token_hash=?", (security.token_hash(authorization[7:]),))
+    db.audit(clin, "logout")
+    return {"ok": True}
+
+
+class PasswordIn(BaseModel):
+    current: str
+    new: str = Field(min_length=12, max_length=200)
+
+
+@app.post("/api/clinician/password")
+def change_password(body: PasswordIn, authorization: str = Header(None), clin=Depends(current_clinician)):
+    problem = security.password_problem(body.new, clin)
+    with db.tx() as c:
+        row = c.execute("SELECT * FROM clinicians WHERE username=?", (clin,)).fetchone()
+        wrong = not security.check_password(body.current, row["salt"], row["pw_hash"])
+        if not wrong and not problem:
+            salt, h = security.hash_password(body.new)
+            c.execute("UPDATE clinicians SET salt=?, pw_hash=? WHERE username=?", (salt, h, clin))
+            # every other session for this clinician ends
+            c.execute("DELETE FROM sessions WHERE username=? AND token_hash!=?", (clin, security.token_hash(authorization[7:])))
+    if wrong:
+        db.audit(clin, "password_change_failed")
+        raise HTTPException(403, "Current password is wrong")
+    if problem:
+        raise HTTPException(400, problem)
+    db.audit(clin, "password_changed")
+    return {"ok": True}
 
 
 def _case_summary(row, ref):
@@ -542,7 +618,7 @@ def referral_status(aid: str, body: StatusIn, clin=Depends(current_clinician)):
 
 
 @app.get("/api/clinician/metrics")
-def metrics(include_simulated: bool = True, clin=Depends(current_clinician)):
+def metrics(include_simulated: bool = False, clin=Depends(current_clinician)):
     sim = "" if include_simulated else " AND simulated=0"
     with db.tx() as c:
         a = c.execute(f"SELECT * FROM assessments WHERE 1=1{sim}").fetchall()
@@ -589,7 +665,7 @@ def _group(rows, key):
 
 
 @app.get("/api/insights")
-def programme_insights(include_simulated: bool = True, clin=Depends(current_clinician)):
+def programme_insights(include_simulated: bool = False, clin=Depends(current_clinician)):
     """Aggregated, k-anonymised programme dashboard for the health authority."""
     from . import insights
     db.audit(clin, "view_insights")

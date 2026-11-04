@@ -89,13 +89,14 @@ function line(points) {
 }
 
 async function load() {
-  const d = await API.get(`/api/insights?include_simulated=${$("#sim") ? $("#sim").checked : true}`);
+  const d = await API.get(`/api/insights?include_simulated=${$("#sim") ? $("#sim").checked : false}`);
   const t = d.tiles;
   const faster = t.median_days_to_evaluation ? Math.round(t.usual_pathway_days / t.median_days_to_evaluation) : null;
   $("#view").innerHTML = `
     <div class="head"><div><h1>Programme dashboard</h1>
       <p>Men's reproductive-health front door, Abu Dhabi. Aggregated and de-identified: groups smaller than ${d.k_anonymity} are hidden.</p></div>
       <div class="filters"><label><input type="checkbox" id="sim" ${d.includes_simulated ? "checked" : ""}> Include simulated pilot cases (${fmt(d.simulated)})</label></div></div>
+    ${d.includes_simulated ? `<div class="banner alert" style="margin:0 0 16px"><b>Simulated pilot data is included.</b> ${fmt(d.simulated)} cases were generated from published effect sizes with assumed booking and attendance rates. These are not real Abu Dhabi results.</div>` : ""}
     <div class="tiles">
       <div class="tile"><div class="v">${fmt(t.completed)}</div><div class="l">Checks completed</div><div class="c">${t.completion_rate ?? "—"}% of those started</div></div>
       <div class="tile"><div class="v">${t.median_days_to_evaluation ?? "—"}<small>days</small></div><div class="l">From check to seeing a clinician</div><div class="c">${faster ? `About ${faster}× sooner than the usual 12+ months` : "No completed visits yet"}</div></div>

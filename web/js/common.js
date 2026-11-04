@@ -6,7 +6,10 @@ const API = {
     if (body !== undefined) opts.body = isForm ? body : JSON.stringify(body);
     const r = await fetch(path, opts);
     const data = r.headers.get("content-type")?.includes("json") ? await r.json() : await r.text();
-    if (!r.ok) throw Object.assign(new Error(data?.detail || r.statusText), { status: r.status, data });
+    if (r.status === 401 && sessionStorage.getItem("ctoken") && /^\/api\/(clinician|insights)/.test(path) && !path.endsWith("/login")) {
+      sessionStorage.removeItem("ctoken"); location.href = "clinician.html";  // session ended: back to sign-in
+    }
+    if (!r.ok) throw Object.assign(new Error(typeof data?.detail === "string" ? data.detail : r.statusText), { status: r.status, data });
     return data;
   },
   get(p) { return this.req("GET", p); },

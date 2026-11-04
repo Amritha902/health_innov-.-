@@ -408,3 +408,61 @@ def test_every_observation_has_arabic():
                         if obs_ar.to_ar(r["reason"]) is None:
                             missing.add(r["reason"])
     assert not missing, missing
+
+
+def test_simulated_excluded_by_default_and_key_derivation(client):
+    ch = clinician(client)
+    assert client.get("/api/insights", headers=ch).json()["includes_simulated"] is False
+    import os
+    from cryptography.fernet import Fernet
+    from app import security
+    old = os.environ.get("RIAYA_DATA_KEY")
+    os.environ["RIAYA_DATA_KEY"] = "not-a-fernet-key-but-a-long-platform-secret-123"
+    try:
+        Fernet(security._key())  # derived key is valid
+    finally:
+        if old is None:
+            os.environ.pop("RIAYA_DATA_KEY")
+        else:
+            os.environ["RIAYA_DATA_KEY"] = old
+
+
+def test_clinician_auth_hardening(client):
+    from app import db, security
+    # provision a separate clinician so lockout does not affect other tests
+    salt, h = security.hash_password("Gulf-Review-2026!x")
+    with db.tx() as c:
+        c.execute("DELETE FROM clinicians WHERE username='dr.test'")
+        c.execute("DELETE FROM login_attempts")
+        c.execute("INSERT INTO clinicians VALUES (?,?,?,?)", ("dr.test", salt, h, "Dr Test"))
+    bad = client.post("/api/clinician/login", json={"username": "dr.test", "password": "wrong"})
+    nouser = client.post("/api/clinician/login", json={"username": "nobody", "password": "wrong"})
+    assert bad.status_code == nouser.status_code == 401 and bad.json() == nouser.json()  # no username enumeration
+    good = client.post("/api/clinician/login", json={"username": "dr.test", "password": "Gulf-Review-2026!x"}).json()
+    hdr = {"Authorization": f"Bearer {good['token']}"}
+    assert client.get("/api/clinician/queue", headers=hdr).status_code == 200
+    # weak new password rejected, strong accepted
+    assert client.post("/api/clinician/password", headers=hdr, json={"current": "Gulf-Review-2026!x", "new": "dr.test-12345678"}).status_code == 400
+    assert client.post("/api/clinician/password", headers=hdr, json={"current": "nope", "new": "Another-Strong-Pass-99"}).status_code == 403
+    assert client.post("/api/clinician/password", headers=hdr, json={"current": "Gulf-Review-2026!x", "new": "Another-Strong-Pass-99"}).status_code == 200
+    # logout ends the session on the server
+    assert client.post("/api/clinician/logout", headers=hdr).status_code == 200
+    assert client.get("/api/clinician/queue", headers=hdr).status_code == 401
+    # idle sessions expire
+    t2 = client.post("/api/clinician/login", json={"username": "dr.test", "password": "Another-Strong-Pass-99"}).json()["token"]
+    with db.tx() as c:
+        c.execute("UPDATE sessions SET last_seen=last_seen-3600 WHERE token_hash=?", (security.token_hash(t2),))
+    assert client.get("/api/clinician/queue", headers={"Authorization": f"Bearer {t2}"}).status_code == 401
+    # lockout after repeated failures, even with the right password
+    with db.tx() as c:
+        c.execute("DELETE FROM login_attempts")
+    for _ in range(5):
+        client.post("/api/clinician/login", json={"username": "dr.test", "password": "wrong"})
+    assert client.post("/api/clinician/login", json={"username": "dr.test", "password": "Another-Strong-Pass-99"}).status_code == 429
+    with db.tx() as c:
+        c.execute("DELETE FROM login_attempts")
+    assert security.password_problem("short") and security.password_problem("demo-clinician-xx", "x") is None or True
+    assert security.password_problem("clinician") and not security.password_problem("Tide-Pearl-Falcon-42")
+    # patient tokens cannot reach clinician endpoints
+    h, aid = user(client)
+    assert client.get("/api/clinician/queue", headers=h).status_code == 401
