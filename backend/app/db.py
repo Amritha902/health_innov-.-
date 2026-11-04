@@ -132,7 +132,7 @@ def tx():
 
 
 MIGRATIONS = {
-    "assessments": [("labs", "BLOB")],
+    "assessments": [("labs", "BLOB"), ("channel", "TEXT")],
     "messages": [("audio", "BLOB"), ("mime", "TEXT"), ("seconds", "REAL")],
     "referrals": [("rapid", "INTEGER DEFAULT 0"), ("due_at", "REAL"), ("video_url", "TEXT"), ("handover_at", "REAL")],
 }

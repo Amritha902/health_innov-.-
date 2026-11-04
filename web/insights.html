@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Riaya Programme Dashboard</title>
+<link rel="stylesheet" href="css/app.css">
+<style>
+.viz-root { --s1: #2b6f9e; --s2: #b9832a; --grid: #e3e5e0; --text-primary: var(--ink); --text-secondary: var(--ink-2); }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) .viz-root { --s1: #4f94cc; --s2: #b0802f; --grid: #1f3a4a; } }
+:root[data-theme="dark"] .viz-root { --s1: #4f94cc; --s2: #b0802f; --grid: #1f3a4a; }
+.dash { max-width: 1280px; margin: 0 auto; padding: 8px clamp(16px, 4vw, 40px) 80px; }
+.head { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin: 12px 0 28px; }
+.head h1 { margin: 0; font-size: clamp(32px, 4vw, 46px); }
+.head p { margin: 6px 0 0; color: var(--muted); max-width: 52em; }
+.filters { margin-inline-start: auto; display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--ink-2); }
+.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 18px; }
+@media (max-width: 1000px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; }
+.tile .v { font: 300 44px/1 Plex, sans-serif; letter-spacing: -.02em; }
+.tile .v small { font-size: 18px; color: var(--muted); margin-inline-start: 4px; }
+.tile .l { color: var(--ink-2); font-size: 14px; margin-top: 10px; }
+.tile .c { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
+.panel { grid-column: span 6; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; }
+.panel.wide { grid-column: span 12; } .panel.third { grid-column: span 4; } .panel.two { grid-column: span 8; }
+@media (max-width: 1000px) { .panel, .panel.third, .panel.two { grid-column: span 12; } }
+.panel h2 { font: 500 18px/1.3 Plex, sans-serif; margin: 0 0 4px; }
+.panel .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+.bars .row { display: grid; grid-template-columns: minmax(120px, 210px) 1fr 70px; align-items: center; gap: 12px; padding: 5px 0; font-size: 14px; }
+.bars .track { height: 14px; position: relative; }
+.bars .fill { height: 100%; background: var(--s1); border-radius: 0 4px 4px 0; min-width: 2px; }
+.bars .fill.alt { background: var(--s2); }
+.bars .val { color: var(--text-primary); font-variant-numeric: tabular-nums; text-align: end; }
+.bars .row:hover .fill { filter: brightness(1.12); }
+.legend { display: flex; gap: 18px; font-size: 13px; color: var(--ink-2); margin: 0 0 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-inline-end: 6px; vertical-align: -1px; }
+svg text { fill: var(--ink-2); font: 12px Plex, sans-serif; }
+.tip { position: fixed; pointer-events: none; z-index: 50; background: var(--gulf); color: #eef0ec; font-size: 13px; padding: 8px 10px; border-radius: 8px; opacity: 0; transition: opacity .12s; max-width: 280px; }
+details.tbl { margin-top: 12px; } details.tbl table { margin-top: 8px; }
+.supp { color: var(--muted); font-style: italic; }
+.note { color: var(--muted); font-size: 12.5px; margin-top: 18px; }
+</style>
+</head>
+<body data-no-hide="1">
+<header class="top"><a class="brand" href="index.html"><i></i>Riaya</a><span class="muted" style="font-size:14px">Programme dashboard</span><div class="spacer"></div>
+  <a class="chip" href="clinician.html">Clinician console</a><span class="muted" id="who"></span></header>
+<main class="dash viz-root" id="view"></main>
+<div class="tip" id="tip"></div>
+<script src="js/common.js"></script>
+<script>
+const tip = $("#tip");
+document.addEventListener("mousemove", e => { if (tip.style.opacity === "1") { tip.style.left = (e.clientX + 14) + "px"; tip.style.top = (e.clientY + 14) + "px"; } });
+function hoverable(root) {
+  $$("[data-tip]", root).forEach(el => {
+    el.addEventListener("mouseenter", () => { tip.innerHTML = el.dataset.tip; tip.style.opacity = "1"; });
+    el.addEventListener("mouseleave", () => { tip.style.opacity = "0"; });
+  });
+}
+const fmt = n => n == null ? "—" : Number(n).toLocaleString("en");
+const LEVEL = { emergency: "Emergency", urgent_specialist: "Urgent urology", same_day_primary: "Same-day primary care", andrology: "Andrology / urology",
+  fertility_services: "Fertility clinic (couple)", primary_care: "Family doctor / IFHAS", self_care: "Personal plan" };
+const GROUP = { arab: "Arab / Middle Eastern", south_asian: "South Asian", east_asian: "East / South-East Asian", european: "European", african: "African", other: "Other", unknown: "Not stated", "20s": "20–29", "30s": "30–39", "40s": "40–49", "50s": "50–59", "60s": "60+" };
+const CHANNEL = { chat: "Voice or chat", watch: "Watch first", web: "Detailed check", whatsapp: "WhatsApp" };
+
+function bars(items, { max, suffix = "", alt = [] } = {}) {
+  const m = max || Math.max(1, ...items.map(d => d.v));
+  return `<div class="bars">${items.map(d => `<div class="row" data-tip="<b>${esc(d.k)}</b><br>${fmt(d.v)}${suffix}${d.extra ? "<br>" + d.extra : ""}">
+    <span>${esc(d.k)}</span><div class="track"><div class="fill ${alt.includes(d.k) ? "alt" : ""}" style="width:${100 * d.v / m}%"></div></div><span class="val">${fmt(d.v)}${suffix}</span></div>`).join("")}</div>`;
+}
+function table(head, rows) {
+  return `<details class="tbl"><summary>View as table</summary><table><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c ?? "—"}</td>`).join("")}</tr>`).join("")}</table></details>`;
+}
+function line(points) {
+  const W = 1160, H = 200, L = 34, B = 24, T = 10;
+  if (!points.length) return '<p class="muted">No data yet.</p>';
+  const max = Math.max(...points.map(p => p.n)) * 1.15 || 1;
+  const x = i => L + (W - L - 10) * (points.length === 1 ? .5 : i / (points.length - 1));
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const ticks = [0, Math.round(max / 2), Math.round(max)];
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Completed checks per week">
+    ${ticks.map(t => `<line x1="${L}" x2="${W - 10}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`).join("")}
+    <path d="${points.map((p, i) => `${i ? "L" : "M"}${x(i)} ${y(p.n)}`).join(" ")}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>
+    ${points.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.n)}" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+      <rect x="${x(i) - 18}" y="${T}" width="36" height="${H - T - B}" fill="transparent" data-tip="<b>Week ${p.week.split("-")[1]}</b><br>${p.n} completed checks"/>
+      ${i % 2 === 0 || i === points.length - 1 ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">wk ${p.week.split("-")[1]}</text>` : ""}`).join("")}
+  </svg>`;
+}
+
+async function load() {
+  const d = await API.get(`/api/insights?include_simulated=${$("#sim") ? $("#sim").checked : true}`);
+  const t = d.tiles;
+  const faster = t.median_days_to_evaluation ? Math.round(t.usual_pathway_days / t.median_days_to_evaluation) : null;
+  $("#view").innerHTML = `
+    <div class="head"><div><h1>Programme dashboard</h1>
+      <p>Men's reproductive-health front door, Abu Dhabi. Aggregated and de-identified: groups smaller than ${d.k_anonymity} are hidden.</p></div>
+      <div class="filters"><label><input type="checkbox" id="sim" ${d.includes_simulated ? "checked" : ""}> Include simulated pilot cases (${fmt(d.simulated)})</label></div></div>
+    <div class="tiles">
+      <div class="tile"><div class="v">${fmt(t.completed)}</div><div class="l">Checks completed</div><div class="c">${t.completion_rate ?? "—"}% of those started</div></div>
+      <div class="tile"><div class="v">${t.median_days_to_evaluation ?? "—"}<small>days</small></div><div class="l">From check to seeing a clinician</div><div class="c">${faster ? `About ${faster}× sooner than the usual 12+ months` : "No completed visits yet"}</div></div>
+      <div class="tile"><div class="v">${t.referral_completion ?? "—"}<small>%</small></div><div class="l">Referrals that reached a clinician</div><div class="c">Booked and attended</div></div>
+      <div class="tile"><div class="v">${t.rapid_on_time ?? "—"}<small>%</small></div><div class="l">Urgent reviews on time</div><div class="c">${t.rapid_overdue} overdue now</div></div>
+      <div class="tile"><div class="v">${t.median_minutes ?? "—"}<small>min</small></div><div class="l">Median time to complete</div><div class="c">Doctor review in ${t.median_hours_to_review ?? "—"} h (median)</div></div>
+    </div>
+    <div class="grid">
+      <div class="panel two"><h2>From first tap to a clinician</h2><p class="sub">Each step as a share of men who started.</p>
+        ${bars(d.funnel.map(f => ({ k: f.step, v: f.n, extra: `${Math.round(100 * f.n / Math.max(1, d.funnel[0].n))}% of started` })))}
+        <p class="note">Specialist referrals approved by a doctor before they were final: ${fmt(d.reviewed.reviewed_by_doctor)}.</p>
+        ${table(["Step", "Men", "% of started"], d.funnel.map(f => [f.step, fmt(f.n), Math.round(100 * f.n / Math.max(1, d.funnel[0].n)) + "%"]))}</div>
+      <div class="panel third"><h2>Days until a man is seen</h2><p class="sub">Median, Riaya pilot against the usual pathway.</p>
+        <div class="legend"><span><i style="background:var(--s1)"></i>Riaya</span><span><i style="background:var(--s2)"></i>Usual pathway (reference)</span></div>
+        ${bars([{ k: "Riaya", v: t.median_days_to_evaluation || 0, extra: "Median, check to attended visit" }, { k: "Usual pathway", v: t.usual_pathway_days, extra: "Men typically assessed after 12+ months trying (ASRM 2020)" }], { suffix: " d", alt: ["Usual pathway"] })}
+        <p class="note">The usual-pathway figure is a guideline reference, not measured in this pilot.</p></div>
+      <div class="panel"><h2>What drives the signals across the population</h2><p class="sub">Average share of each man's signal that comes from each modifiable factor. This shows where prevention campaigns would help most.</p>
+        ${bars(d.drivers.map(x => ({ k: x.label, v: x.share })), { suffix: "%" })}
+        ${table(["Factor", "Average share"], d.drivers.map(x => [x.label, x.share + "%"]))}</div>
+      <div class="panel"><h2>How common each signal is</h2><p class="sub">Share of completed checks where the signal is clearly present.</p>
+        ${bars(d.prevalence.filter(x => x.pct).map(x => ({ k: x.label, v: x.pct })), { suffix: "%", max: 100 })}
+        ${table(["Signal", "Share of men"], d.prevalence.map(x => [x.label, (x.pct ?? 0) + "%"]))}</div>
+      <div class="panel wide"><h2>Completed checks per week</h2><p class="sub">Hover a week for the count.</p>${line(d.weekly)}
+        ${table(["Week", "Completed"], d.weekly.map(w => [w.week, w.n]))}</div>
+      <div class="panel"><h2>Where men go next</h2><p class="sub">Final level of care.</p>
+        ${bars(Object.entries(d.levels).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ k: LEVEL[k] || k, v })))}</div>
+      <div class="panel"><h2>How men come in</h2><p class="sub">Entry channel.</p>
+        ${bars(Object.entries(d.channels).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ k: CHANNEL[k] || k, v })))}</div>
+      <div class="panel wide"><h2>Fairness</h2><p class="sub">Referral and follow-through by group. Large gaps would trigger a review of wording, thresholds or access.</p>
+        <div class="grid">${[["Age band", d.by_age], ["Background", d.by_background]].map(([name, rows]) => `<div class="panel" style="border:0;padding:0">
+          <table><tr><th>${name}</th><th>Men</th><th>Referred</th><th>Several signals</th><th>Reached a clinician</th></tr>
+          ${rows.map(r => r.suppressed ? `<tr><td>${esc(GROUP[r.group] || r.group)}</td><td colspan="4" class="supp">Fewer than ${d.k_anonymity} men: hidden to protect privacy</td></tr>`
+            : `<tr><td>${esc(GROUP[r.group] || r.group)}</td><td>${r.n}</td><td>${r.referred_pct}%</td><td>${r.high_pct}%</td><td>${r.attended_pct ?? "—"}%</td></tr>`).join("")}</table></div>`).join("")}</div></div>
+    </div>
+    <p class="note">${d.includes_simulated ? "Includes simulated pilot cases generated from published effect sizes, with assumed booking and attendance rates; they are labelled in the clinician console. " : ""}Updated ${new Date(d.generated_at * 1000).toLocaleString("en-GB")}.</p>`;
+  $("#sim").onchange = load;
+  hoverable($("#view"));
+}
+
+API.token = sessionStorage.getItem("ctoken");
+if (!API.token) location.href = "clinician.html";
+else load().catch(() => location.href = "clinician.html");
+</script>
+</body>
+</html>

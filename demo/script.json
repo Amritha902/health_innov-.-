@@ -1,26 +1,93 @@
 [
-  {"id": "title", "kind": "card", "head": "Riaya", "sub": "رعاية · a private front door to men's reproductive health",
-   "vo": "In Abu Dhabi, a man often enters the fertility pathway too late. After months of trying. After his wife has already been assessed."},
-  {"id": "problem", "kind": "card", "head": "Half the picture is missing", "sub": "Male factors are involved in about half of couples who struggle to conceive. Men are usually assessed last.",
-   "vo": "Male factors are involved in about half of couples who struggle to conceive. Yet men are usually checked last. Stigma, privacy and inconvenience keep them away."},
-  {"id": "landing", "kind": "phone", "head": "A private front door", "sub": "No app store. No account. No name. Arabic first.",
-   "vo": "Riaya is a private front door. No app store, no account, no name. It opens in Arabic, and offers three ways in."},
-  {"id": "chat", "kind": "phone", "head": "Talk it through", "sub": "Fourteen questions by voice or chat, in Gulf Arabic or English.",
-   "vo": "He can simply talk it through. By voice or chat, in Gulf Arabic or English. Fourteen questions, about three minutes."},
-  {"id": "watch", "kind": "phone", "head": "Or start with his watch", "sub": "Sleep, activity, oxygen and glucose, read before a single question.",
-   "vo": "Or he starts with his watch. Before asking anything, Riaya reads his sleep, activity, oxygen and glucose, and explains what the data already shows."},
-  {"id": "graph", "kind": "desk", "head": "Every signal is traceable", "sub": "69 factors · 148 cited cause-and-effect links · 95 sources",
-   "vo": "Every signal flows through an evidence map of one hundred and forty eight cited links, each graded by the strength of the research behind it."},
-  {"id": "result", "kind": "phone", "head": "A clear next step", "sub": "Screening, not diagnosis. Three changes that matter most.",
-   "vo": "He gets a clear next step and the three changes that matter most for him. Screening, never a diagnosis."},
-  {"id": "clinician", "kind": "desk", "head": "A doctor checks every referral", "sub": "Rapid review · explanations · handover to the right clinic",
-   "vo": "A licensed doctor reviews every specialist referral. Urgent findings get a forty eight hour fast track, private voice notes, and a handover package that tells the clinic which tests are already done."},
-  {"id": "whatsapp", "kind": "desk", "head": "Or nothing to install at all", "sub": "The same check on WhatsApp. One word erases everything.",
-   "vo": "And for men who will not install anything, the same check runs on WhatsApp. One word erases everything."},
-  {"id": "privacy", "kind": "phone", "head": "Private by design", "sub": "One tap hides the screen. Encrypted, stored in the UAE, under his control.",
-   "vo": "One tap hides the screen. His data is encrypted, kept in the UAE, and shared only when he chooses."},
-  {"id": "proof", "kind": "card", "head": "26 of 26", "sub": "clinical scenarios routed safely · zero under-triage · ready for IFHAS",
-   "vo": "Tested on twenty six clinical scenarios with zero under-triage, and built to plug straight into Abu Dhabi's IFHAS screening programme."},
-  {"id": "end", "kind": "card", "head": "Riaya", "sub": "Care that starts early.",
-   "vo": "Riaya. Because the strongest step is the first one."}
+ {
+  "id": "title",
+  "kind": "card",
+  "head": "Riaya",
+  "sub": "رعاية · a private front door to men's reproductive health",
+  "vo": "In Abu Dhabi, a man often enters the fertility pathway too late. After months of trying. After his wife has already been assessed."
+ },
+ {
+  "id": "problem",
+  "kind": "card",
+  "head": "Half the picture is missing",
+  "sub": "Male factors are involved in about half of couples who struggle to conceive. Men are usually assessed last.",
+  "vo": "Male factors are involved in about half of couples who struggle to conceive. Yet men are usually checked last. Stigma, privacy and inconvenience keep them away."
+ },
+ {
+  "id": "landing",
+  "kind": "phone",
+  "head": "A private front door",
+  "sub": "No app store. No account. No name. Arabic first.",
+  "vo": "Riaya is a private front door. No app store, no account, no name. It opens in Arabic, and offers three ways in."
+ },
+ {
+  "id": "chat",
+  "kind": "phone",
+  "head": "Talk it through",
+  "sub": "Fourteen questions by voice or chat, in Gulf Arabic or English.",
+  "vo": "He can simply talk it through. By voice or chat, in Gulf Arabic or English. Fourteen questions, about three minutes."
+ },
+ {
+  "id": "watch",
+  "kind": "phone",
+  "head": "Or start with his watch",
+  "sub": "Sleep, activity, oxygen and glucose, read before a single question.",
+  "vo": "Or he starts with his watch. Before asking anything, Riaya reads his sleep, activity, oxygen and glucose, and explains what the data already shows."
+ },
+ {
+  "id": "graph",
+  "kind": "desk",
+  "head": "Every signal is traceable",
+  "sub": "69 factors · 148 cited cause-and-effect links · 95 sources",
+  "vo": "Every signal flows through an evidence map of one hundred and forty eight cited links, each graded by the strength of the research behind it."
+ },
+ {
+  "id": "result",
+  "kind": "phone",
+  "head": "A clear next step",
+  "sub": "Screening, not diagnosis. Three changes that matter most.",
+  "vo": "He gets a clear next step and the three changes that matter most for him. Screening, never a diagnosis."
+ },
+ {
+  "id": "clinician",
+  "kind": "desk",
+  "head": "A doctor checks every referral",
+  "sub": "Rapid review · explanations · handover to the right clinic",
+  "vo": "A licensed doctor reviews every specialist referral. Urgent findings get a forty eight hour fast track, private voice notes, and a handover package that tells the clinic which tests are already done."
+ },
+ {
+  "id": "dashboard",
+  "kind": "desk",
+  "head": "Population health intelligence",
+  "sub": "Live, de-identified programme dashboard for ADPHC and DoH",
+  "vo": "And for Abu Dhabi's health system, every check becomes population intelligence. A live, de-identified dashboard shows how fast men reach care, which habits drive risk across the population, where prevention campaigns would help most, and whether care is fair for every community."
+ },
+ {
+  "id": "whatsapp",
+  "kind": "desk",
+  "head": "Or nothing to install at all",
+  "sub": "The same check on WhatsApp. One word erases everything.",
+  "vo": "For men who will not install anything, the same check runs on WhatsApp. One word erases everything."
+ },
+ {
+  "id": "privacy",
+  "kind": "phone",
+  "head": "Private by design",
+  "sub": "One tap hides the screen. Encrypted, stored in the UAE, under his control.",
+  "vo": "One tap hides the screen. His data is encrypted, kept in the UAE, and shared only when he chooses."
+ },
+ {
+  "id": "proof",
+  "kind": "card",
+  "head": "12 days, not 12 months",
+  "sub": "Simulated pilot: median time from check to clinician. 26 of 26 clinical scenarios routed safely.",
+  "vo": "In our simulated pilot, men reached a clinician in about twelve days instead of more than a year. Twenty six of twenty six clinical scenarios were routed safely, and it is built to plug straight into Abu Dhabi's IFHAS screening programme."
+ },
+ {
+  "id": "end",
+  "kind": "card",
+  "head": "Riaya",
+  "sub": "Care that starts early.",
+  "vo": "Riaya. Because the strongest step is the first one."
+ }
 ]

@@ -103,6 +103,17 @@ async function caption(page, sc) {
     await p.click("#hoView"); await wait(500); await p.mouse.wheel(0, 380); await wait(1800); await p.mouse.wheel(0, 500); await wait(1500);
   });
 
+  await rec(b, "dashboard", DESK, async p => {
+    await p.goto(BASE + "/clinician.html"); await p.fill("#p", "demo-clinician"); await p.click("#go"); await p.waitForSelector(".qitem");
+    await p.goto(BASE + "/insights.html"); await p.waitForSelector(".tiles");
+    await p.evaluate(() => { document.querySelector(".dash").style.zoom = "1.32"; });
+    await caption(p, S.dashboard); await wait(3200);
+    await p.mouse.move(700, 640); await wait(1200);
+    for (let i = 0; i < 4; i++) { await p.mouse.wheel(0, 300); await wait(1300); }
+    await p.mouse.move(560, 560); await wait(1400);
+    for (let i = 0; i < 3; i++) { await p.mouse.wheel(0, 420); await wait(1300); }
+  });
+
   await rec(b, "whatsapp", DESK, async p => {
     await p.goto(BASE + "/index.html"); await p.evaluate(() => { localStorage.setItem("lang", "en"); sessionStorage.clear(); });
     await p.goto(BASE + "/whatsapp.html"); await wait(900);

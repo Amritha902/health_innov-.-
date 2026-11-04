@@ -155,11 +155,12 @@ def seed_database(rows, rng):
             aid = str(uuid.uuid4())
             fin = started + rng.lognormvariate(np.log(9), 0.4) * 60 if completed else None
             t = res["triage"] if res else None
-            c.execute("""INSERT INTO assessments (id,user_id,started_at,completed_at,answers,result,tier,level,requires_review,review_consent,cohort,simulated)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?,1)""",
+            channel = rng.choices(["chat", "watch", "web", "whatsapp"], weights=[40, 15, 20, 25])[0]  # assumed mix for the simulation
+            c.execute("""INSERT INTO assessments (id,user_id,started_at,completed_at,answers,result,tier,level,requires_review,review_consent,cohort,simulated,channel)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?)""",
                       (aid, "simulated", started, fin, security.seal(a), security.seal(res) if res else None,
                        t and t["tier"], t and t["level"], int(bool(t and t["requires_review"])), 1,
-                       f"{a['age'] // 10 * 10}s|{a['background']}"))
+                       f"{a['age'] // 10 * 10}s|{a['background']}", channel))
             if t and t["level"] != "self_care":
                 reviewed_at = fin + rng.uniform(1, 24) * 3600 if t["requires_review"] else None
                 status, booked, attended = ("approved" if t["requires_review"] else "suggested"), None, None
@@ -169,10 +170,12 @@ def seed_database(rows, rng):
                         status, attended = "attended", booked + rng.uniform(3, 18) * 86400
                 if t["requires_review"] and rng.random() < 0.15:
                     status, reviewed_at = "pending_review", None
-                c.execute("""INSERT INTO referrals (id,assessment_id,level,status,created_at,reviewed_at,reviewer,final_level,booked_at,attended_at,simulated)
-                             VALUES (?,?,?,?,?,?,?,?,?,?,1)""",
+                rapid = int(bool(t.get("rapid_review")))
+                due = fin + (t.get("sla_hours") or 48) * 3600 if rapid else None
+                c.execute("""INSERT INTO referrals (id,assessment_id,level,status,created_at,reviewed_at,reviewer,final_level,booked_at,attended_at,simulated,rapid,due_at)
+                             VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?)""",
                           (str(uuid.uuid4()), aid, t["level"], status, fin, reviewed_at, "clinician" if reviewed_at else None,
-                           t["level"] if reviewed_at else None, booked, attended))
+                           t["level"] if reviewed_at else None, booked, attended, rapid, due))
             n += 1
     return n
 

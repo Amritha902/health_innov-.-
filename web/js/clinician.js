@@ -23,7 +23,7 @@ async function start() {
   GRAPH = GRAPH || await API.get("/api/graph");
   $("#view").innerHTML = `<div class="tabs row" style="margin-bottom:12px">
     <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
-    <button class="chip" data-t="audit">Access log</button><span class="spacer"></span>
+    <button class="chip" data-t="audit">Access log</button><a class="chip" href="insights.html">Programme dashboard</a><span class="spacer"></span>
     <input type="text" id="code" placeholder="Share code" style="width:160px"><button class="chip" id="open">Open</button></div><div id="tab"></div>`;
   $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, metrics, audit })[b.dataset.t](); });
   $("#open").onclick = async () => {

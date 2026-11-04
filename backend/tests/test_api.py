@@ -276,3 +276,22 @@ def test_conversation_numbers_and_words():
     smoke = [s for s in cv.STEPS if s["id"] == "smoking"][0]
     assert cv.interpret(smoke, "every day") is None or cv.interpret(smoke, "daily") == "daily"
     assert cv.interpret(smoke, "4") == "daily" and cv.interpret(smoke, "يومياً") == "daily"
+
+
+def test_insights_aggregates_and_suppresses(client):
+    for i in range(6):
+        h, aid = user(client)
+        client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "age": 31 + i, "background": "arab"}}, headers=h)
+        client.post(f"/api/assessments/{aid}/submit", headers=h)
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "age": 52, "background": "african"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    ch = clinician(client)
+    d = client.get("/api/insights", headers=ch).json()
+    assert d["tiles"]["completed"] >= 7 and d["funnel"][0]["step"] == "Started"
+    bg = {r["group"]: r for r in d["by_background"]}
+    assert bg["african"]["suppressed"] and bg["african"]["n"] == "<5"
+    assert bg["arab"]["n"] >= 6 and "referred_pct" in bg["arab"]
+    assert d["drivers"] and abs(sum(x["share"] for x in d["drivers"])) <= 100.5
+    assert "smoking" in [p["node"] for p in d["prevalence"]]
+    assert client.get("/api/insights").status_code == 401

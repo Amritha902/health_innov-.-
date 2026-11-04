@@ -160,13 +160,17 @@ def get_consent(user=Depends(current_user)):
 
 
 # ------------------------------------------------------------------ assessment
+CHANNELS = ("web", "chat", "watch", "whatsapp")
+
+
 @app.post("/api/assessments")
-def start(user=Depends(current_user)):
+def start(channel: str = "web", user=Depends(current_user)):
     if not consents(user)["core"]:
         raise HTTPException(403, "Consent required")
     aid = str(uuid.uuid4())
     with db.tx() as c:
-        c.execute("INSERT INTO assessments (id, user_id, started_at) VALUES (?,?,?)", (aid, user, time.time()))
+        c.execute("INSERT INTO assessments (id, user_id, started_at, channel) VALUES (?,?,?,?)",
+                  (aid, user, time.time(), channel if channel in CHANNELS else "web"))
     db.event(aid, "started")
     return {"id": aid}
 
@@ -572,6 +576,14 @@ def _group(rows, key):
                 "referred_pct": round(100 * sum(y["level"] != "self_care" for y in v) / len(v), 1)} for k, v in sorted(groups.items())}
 
 
+@app.get("/api/insights")
+def programme_insights(include_simulated: bool = True, clin=Depends(current_clinician)):
+    """Aggregated, k-anonymised programme dashboard for the health authority."""
+    from . import insights
+    db.audit(clin, "view_insights")
+    return insights.build(include_simulated)
+
+
 @app.get("/api/clinician/audit")
 def audit_log(clin=Depends(current_clinician)):
     with db.tx() as c:
@@ -892,7 +904,7 @@ def _new_identity(st):
         c.execute("INSERT INTO users VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), st["lang"] or "ar"))
         c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (uid, "core", 1, CONSENT_VERSION, time.time()))
         aid = str(uuid.uuid4())
-        c.execute("INSERT INTO assessments (id, user_id, started_at) VALUES (?,?,?)", (aid, uid, time.time()))
+        c.execute("INSERT INTO assessments (id, user_id, started_at, channel) VALUES (?,?,?,?)", (aid, uid, time.time(), "whatsapp"))
     db.event(aid, "started", st.get("channel"))
     st.update(uid=uid, token=token, aid=aid)
 

@@ -149,7 +149,7 @@ async function answer(v, shown) {
     const carried = store.get("passive_aid");
     await API.post("/api/consent", { core: true, clinician_review: v === "yes", wearables: !!carried, research: false });
     if (carried) { S.aid = carried; store.del("passive_aid"); }
-    else S.aid = (await API.post("/api/assessments")).id;
+    else S.aid = (await API.post("/api/assessments?channel=chat")).id;
     store.set("aid", S.aid); store.del("done");
   } else if (q.set) q.set(S.answers, v);
   else if (q.id === "rf_any") S.answers.rf_any = v;

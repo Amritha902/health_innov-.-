@@ -72,7 +72,7 @@ function welcome() {
 async function ensureSession(wearables) {
   if (!API.token) { API.token = (await API.post("/api/session", { lang: LANG })).token; store.set("token", API.token); }
   S.consent = await API.post("/api/consent", { core: true, clinician_review: false, wearables, research: false });
-  S.aid = (await API.post("/api/assessments")).id; store.set("aid", S.aid); store.del("done"); store.set("passive_aid", S.aid);
+  S.aid = (await API.post("/api/assessments?channel=watch")).id; store.set("aid", S.aid); store.del("done"); store.set("passive_aid", S.aid);
 }
 
 function passiveStart() {
