@@ -51,6 +51,42 @@ async def lifespan(_app):
 app = FastAPI(title="Riaya API", docs_url="/api/docs", openapi_url="/api/openapi.json", lifespan=lifespan)
 
 
+FIELD_NAMES = {"new": "New password", "current": "Current password", "username": "Username", "password": "Password", "body": "Message",
+               "text": "Text", "session": "Session", "status": "Status", "decision": "Decision", "trust": "Trust rating", "clarity": "Clarity rating",
+               "comfort": "Comfort rating", "improve": "Changes"}
+
+
+def _readable(err):
+    loc = [str(x) for x in err.get("loc", []) if x not in ("body", "query")]
+    field = FIELD_NAMES.get(loc[-1], loc[-1].replace("_", " ").capitalize()) if loc else "Input"
+    t, ctx = err.get("type", ""), err.get("ctx", {}) or {}
+    if t == "string_too_short":
+        return f"{field} must be at least {ctx.get('min_length')} characters."
+    if t == "string_too_long":
+        return f"{field} must be at most {ctx.get('max_length')} characters."
+    if t in ("greater_than_equal", "greater_than"):
+        return f"{field} must be at least {ctx.get('ge', ctx.get('gt'))}."
+    if t in ("less_than_equal", "less_than"):
+        return f"{field} must be at most {ctx.get('le', ctx.get('lt'))}."
+    if t == "missing":
+        return f"{field} is required."
+    if t == "string_pattern_mismatch":
+        return f"{field} has a value that is not allowed."
+    if t in ("float_parsing", "int_parsing", "float_type", "int_type"):
+        return f"{field} must be a number."
+    return f"{field}: {err.get('msg', 'invalid value')}."
+
+
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_errors(request, exc):
+    """Plain-language errors instead of raw validation output."""
+    msgs = list(dict.fromkeys(_readable(e) for e in exc.errors()))
+    return JSONResponse({"detail": " ".join(msgs), "errors": msgs}, status_code=422)
+
+
 @app.middleware("http")
 async def headers(request, call_next):
     resp = await call_next(request)

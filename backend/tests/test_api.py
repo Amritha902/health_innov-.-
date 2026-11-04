@@ -466,3 +466,13 @@ def test_clinician_auth_hardening(client):
     # patient tokens cannot reach clinician endpoints
     h, aid = user(client)
     assert client.get("/api/clinician/queue", headers=h).status_code == 401
+
+
+def test_readable_validation_errors(client):
+    r = client.post("/api/clinician/password", headers=clinician(client), json={"current": "demo-clinician", "new": "short"})
+    assert r.status_code == 422 and r.json()["detail"] == "New password must be at least 12 characters."
+    h, aid = user(client)
+    r = client.post(f"/api/assessments/{aid}/semen", headers=h, json={"source": "lab", "concentration_m_per_ml": 900})
+    assert "at most 500" in r.json()["detail"]
+    r = client.post(f"/api/assessments/{aid}/labs", headers=h, json={"hba1c": "abc"})
+    assert "must be a number" in r.json()["detail"]

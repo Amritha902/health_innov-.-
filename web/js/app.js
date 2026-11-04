@@ -170,7 +170,15 @@ function intake() {
         return `<span class="opt ${on ? "on" : ""} ${o.value === "skip" ? "skip" : ""}" data-q="${q.id}" data-v='${JSON.stringify(o.value)}' data-m="${multi ? 1 : 0}">${esc(o[LANG])}</span>`;
       }).join("")}</div>`;
     }).join("");
-    $$("input[data-q]", box).forEach(i => i.oninput = () => { S.answers[i.dataset.q] = i.value === "" ? null : Number(i.value); saveDraft(); });
+    $$("input[data-q]", box).forEach(i => i.oninput = () => {
+      const v = i.value === "" ? null : Number(i.value), lo = i.min === "" ? null : Number(i.min), hi = i.max === "" ? null : Number(i.max);
+      let hint = i.nextElementSibling && i.nextElementSibling.classList.contains("hint") ? i.nextElementSibling : null;
+      if (!hint) { hint = document.createElement("div"); hint.className = "hint help"; i.after(hint); }
+      const bad = v != null && (Number.isNaN(v) || (lo != null && v < lo) || (hi != null && v > hi));
+      hint.textContent = bad ? (LANG === "ar" ? `أدخل رقماً بين ${lo} و${hi}` : `Enter a number between ${lo} and ${hi}`) : "";
+      i.style.borderColor = bad ? "var(--alert)" : "";
+      S.answers[i.dataset.q] = bad ? null : v; saveDraft();
+    });
     $$(".opt", box).forEach(o => o.onclick = () => {
       const id = o.dataset.q, v = JSON.parse(o.dataset.v);
       if (o.dataset.m === "1") {
