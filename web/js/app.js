@@ -297,16 +297,33 @@ function tests() {
   const showReport = r => {
     if (!r.values.length) { $("#lrout").innerHTML = `<p>${t("lrNone")}</p>`; return; }
     $("#lrout").innerHTML = `<table style="margin-top:14px;color:inherit"><tr><th style="color:#a9bac4">${t("lrField")}</th><th style="color:#a9bac4">${t("lrValue")}</th><th style="color:#a9bac4">${t("lrFrom")}</th></tr>
-      ${r.values.map(v => `<tr><td>${t("lrNames")[v.field] || v.field}${v.confidence === "check" ? ` <span class="tag">${t("lrCheck")}</span>` : ""}</td>
-        <td><input type="number" step="0.01" data-f="${v.field}" data-t="${v.target}" value="${v.value}" style="width:96px;padding:6px 8px"> ${v.unit}</td>
+      ${r.values.map(v => `<tr><td>${t("lrNames")[v.field] || v.field}<br><span class="tag">${esc(lx("conf")[v.confidence] || v.confidence)}</span>${v.lab_flag ? ` <span class="tag">${esc(v.lab_flag)}</span>` : ""}</td>
+        <td><input type="number" step="0.01" data-f="${v.field}" data-t="${v.target}" data-x="${v.value}" value="${v.value}" style="width:96px;padding:6px 8px"> ${v.unit}
+          ${v.ref ? `<br><span style="color:#a9bac4;font-size:12px">${lx("range")}: ${esc(v.reference)}</span>` : ""}</td>
         <td style="color:#a9bac4;font-size:12px" dir="ltr">${esc(v.line)}</td></tr>`).join("")}</table>
+      <h3 style="margin-top:14px">${lx("ctxT")}</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+        <label class="small">${lx("abst")}<input type="number" id="lrAb" min="0" max="60" value="${r.context.abstinence_days ?? ""}"></label>
+        <label class="small">${lx("time")}<input type="time" id="lrTm" value="${r.context.time || ""}"></label>
+        <label class="small">${lx("labName")}<input type="text" id="lrLab" maxlength="80"></label></div>
+      <label class="check small"><input type="checkbox" id="lrFa" ${r.context.fasting ? "checked" : ""}><div>${lx("fasting")}</div></label>
+      <label class="check small"><input type="checkbox" id="lrFv"><div>${lx("fever")}</div></label>
       <p><button class="btn" style="background:#eef0ec;color:#0f2a3a" id="lrok">${t("lrConfirm")}</button></p>`;
     $("#lrok").onclick = async () => {
       const semen = { source: "lab" }, labs = { date: r.date || null };
       $$("#lrout input[data-f]").forEach(i => { if (i.value !== "") (i.dataset.t === "semen" ? semen : labs)[i.dataset.f] = Number(i.value); });
       if (Object.keys(semen).length > 1) await API.post(`/api/assessments/${S.aid}/semen`, semen);
       if (Object.keys(labs).some(k => k !== "date" && labs[k] != null)) { Object.keys(labs).forEach(k => labs[k] == null && delete labs[k]); await API.post(`/api/assessments/${S.aid}/labs`, labs); }
-      $("#lrout").innerHTML = `<p>✓ ${t("lrSaved")}</p>`;
+      const byF = Object.fromEntries(r.values.map(v => [v.field, v]));
+      const values = $$("#lrout input[data-f]").filter(i => i.value !== "" && i.dataset.f !== "abstinence_days").map(i => { const v = byF[i.dataset.f];
+        return { field: i.dataset.f, value: Number(i.value), extracted_value: Number(i.dataset.x), ref_low: v.ref ? v.ref.low : null, ref_high: v.ref ? v.ref.high : null,
+          ref_text: v.reference, score: v.score, line: v.line, lab_flag: v.lab_flag }; });
+      const ab = $("#lrAb").value;
+      if (values.length) await API.post("/api/me/labs", { assessment_id: S.aid, collected_on: r.date || null, lab_name: $("#lrLab").value || null, source: "report",
+        abstinence_days: ab === "" ? null : Number(ab), time: $("#lrTm").value || null, fasting: $("#lrFa").checked ? true : (r.context.fasting === false ? false : null),
+        fever_recent: $("#lrFv").checked || null, values });
+      $("#lrout").innerHTML = `<p>✓ ${t("lrSaved")} ${lx("saveTl")}</p><p><button class="btn ghost" style="color:inherit" id="lrTl">${lx("openLabs")}</button></p>`;
+      $("#lrTl").onclick = () => renderLabs();
     };
   };
   const readReport = async file => {
@@ -488,6 +505,7 @@ async function renderJourney() {
   const j = await API.get(`/api/me/journey?lang=${LANG}`);
   const d = ts => new Date(ts * 1000).toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
   view().innerHTML = `<h1>${t("jTitle")}</h1>
+    <p class="row"><button class="btn ghost" id="jLabs">${lx("openLabs")}</button><button class="btn ghost" id="jPlan">${lx("openPlan")}</button></p>
     ${j.recheck_due ? `<p class="lead">${t("jRecheck")(d(j.recheck_due))}</p><p><button class="btn" id="follow">${t("jFollow")}</button></p>` : `<p>${t("none")}</p>`}
     ${j.checks.map((c, i) => `<div class="card" style="${i === 0 ? "border-inline-start:4px solid var(--saffron)" : ""}">
       <div class="muted small">${d(c.completed_at)}</div><h2>${esc(c.next_step)}</h2><p class="small">${esc(c.summary)}</p>
@@ -502,6 +520,8 @@ async function renderJourney() {
         <button class="chip" data-p="declined">${t("jCouldnt")}</button></div>` : ""}
     </div>`).join("")}`;
   $$("[data-care]").forEach(b => b.onclick = () => renderCare(b.dataset.care));
+  $("#jLabs").onclick = () => renderLabs();
+  $("#jPlan").onclick = () => renderPlan();
   $$("[data-aid] [data-p]").forEach(b => b.onclick = async () => {
     const aid = b.parentElement.dataset.aid;
     if (b.dataset.p === "declined") {
@@ -694,5 +714,177 @@ async function renderCare(aid) {
         phone: contact === "phone" ? $("#ccPhone").value : null, share_summary: $("#ccShare").checked, note: $("#ccNote").value || null });
       renderCare(aid);
     } catch (e) { $("#ccMsg").textContent = e.message; }
+  };
+}
+
+
+const LX = {
+  en: { labsT: "My lab results", labsSub: "Every result you have saved, in date order. Each one is compared with the range printed on its own report.",
+    labsNone: "No saved results yet. Upload a report on the tests step, check the values, and save them here.",
+    latest: "Latest", lab: "lab's range", typical: "typical range (your lab's may differ)", since: d => `since ${d}`,
+    st: { low: "Below range", high: "Above range", normal: "Within range", borderline: "Borderline" },
+    dir: { better: "Moving the right way", worse: "Moving the wrong way", same: "No change", changed: "Changed" },
+    rev: { pending: "Waiting for a doctor to check", accepted: "Checked by a doctor", corrected: "Corrected by a doctor", rejected: "Set aside by a doctor" },
+    pendingN: n => `${n} value${n === 1 ? "" : "s"} waiting for a doctor to check against your report.`,
+    ctxT: "How was the sample taken? (optional)", abst: "Days since last ejaculation", time: "Time the sample was taken", fasting: "I was fasting",
+    fever: "I had a fever in the 3 months before", labName: "Lab name (optional)", range: "Lab's range", conf: { high: "Read clearly", medium: "Please check", low: "Unsure, check carefully", check: "Looks unusual" },
+    saveTl: "Saved to My lab results.", openLabs: "My lab results", del: "Remove", table: "Show as table", date: "Date", value: "Value", status: "Status",
+    planT: "12-week plan", planSub: "Sperm take about 74 days to develop, so changes in habits show in results after about three months. Pick up to three goals from your summary.",
+    planPick: "Choose up to three goals", planStart: "Start my plan", planReview: "A doctor will look over your plan before it starts. You'll get a message.",
+    planSelf: "You haven't asked for doctor review, so this plan is self-guided.", planWait: "Your plan is with a doctor for review. You'll get a message when it starts.",
+    week: (w, n) => `Week ${w} of ${n}`, due: "This week's check-in", howWent: "How did it go?", energy: "Your energy this week",
+    saveCheck: "Save this week", saved: "Saved. See you next week.", trend: "Your weeks so far", noTrend: "Your trend appears after your first check-in.",
+    doctorSays: "From your doctor", remind: "Weekly reminder", remindSub: "Adds a calendar entry that says only “Weekly check-in”, every week at 8 pm.",
+    remindB: "Add to calendar", stop: "Stop plan", stopC: "Stop this plan? Your check-ins are kept.", done: "Your 12 weeks are complete. A follow-up check will show what changed.",
+    recheck: "Start a follow-up check", first: "Start", now: "Now", logged: n => `${n} of 12 weeks logged`, openPlan: "12-week plan",
+    adherence: ["Not this week", "A few days", "Most days", "Every day"] },
+  ar: { labsT: "نتائج فحوصاتي", labsSub: "كل نتيجة حفظتها بترتيب التاريخ. تُقارن كل نتيجة بالمعدل المطبوع على تقريرها.",
+    labsNone: "لا توجد نتائج محفوظة بعد. ارفع تقريراً في خطوة الفحوصات، وتحقق من القيم، ثم احفظها هنا.",
+    latest: "الأحدث", lab: "معدل المختبر", typical: "المعدل المعتاد (قد يختلف معدل مختبرك)", since: d => `منذ ${d}`,
+    st: { low: "أقل من المعدل", high: "أعلى من المعدل", normal: "ضمن المعدل", borderline: "حدّي" },
+    dir: { better: "يتحسن", worse: "يتراجع", same: "بلا تغيير", changed: "تغيّر" },
+    rev: { pending: "بانتظار مراجعة الطبيب", accepted: "راجعه طبيب", corrected: "صحّحه طبيب", rejected: "استبعده طبيب" },
+    pendingN: n => `${n} قيمة بانتظار أن يطابقها طبيب مع تقريرك.`,
+    ctxT: "كيف أُخذت العينة؟ (اختياري)", abst: "أيام منذ آخر قذف", time: "وقت أخذ العينة", fasting: "كنت صائماً",
+    fever: "أصبت بحمّى خلال الأشهر الثلاثة السابقة", labName: "اسم المختبر (اختياري)", range: "معدل المختبر", conf: { high: "قُرئت بوضوح", medium: "يرجى التحقق", low: "غير مؤكدة، تحقق بعناية", check: "تبدو غير معتادة" },
+    saveTl: "حُفظت في نتائج فحوصاتي.", openLabs: "نتائج فحوصاتي", del: "إزالة", table: "اعرضها كجدول", date: "التاريخ", value: "القيمة", status: "الحالة",
+    planT: "خطة ١٢ أسبوعاً", planSub: "تحتاج الحيوانات المنوية نحو ٧٤ يوماً لتتكوّن، لذا يظهر أثر تغيير العادات في النتائج بعد نحو ثلاثة أشهر. اختر حتى ثلاثة أهداف من ملخصك.",
+    planPick: "اختر حتى ثلاثة أهداف", planStart: "ابدأ خطتي", planReview: "سيراجع طبيب خطتك قبل أن تبدأ. ستصلك رسالة.",
+    planSelf: "لم تطلب مراجعة طبيب، لذا هذه خطة ذاتية.", planWait: "خطتك لدى طبيب للمراجعة. ستصلك رسالة عندما تبدأ.",
+    week: (w, n) => `الأسبوع ${w} من ${n}`, due: "متابعة هذا الأسبوع", howWent: "كيف كان الأسبوع؟", energy: "طاقتك هذا الأسبوع",
+    saveCheck: "احفظ هذا الأسبوع", saved: "تم الحفظ. نراك الأسبوع القادم.", trend: "أسابيعك حتى الآن", noTrend: "يظهر مسارك بعد أول متابعة.",
+    doctorSays: "من طبيبك", remind: "تذكير أسبوعي", remindSub: "يضيف موعداً في التقويم بعنوان «متابعة أسبوعية» فقط، كل أسبوع الساعة ٨ مساءً.",
+    remindB: "أضف إلى التقويم", stop: "أوقف الخطة", stopC: "هل تريد إيقاف هذه الخطة؟ تبقى متابعاتك محفوظة.", done: "اكتملت أسابيعك الاثنا عشر. سيُظهر فحص المتابعة ما تغيّر.",
+    recheck: "ابدأ فحص متابعة", first: "البداية", now: "الآن", logged: n => `سُجّل ${n} من ١٢ أسبوعاً`, openPlan: "خطة ١٢ أسبوعاً",
+    adherence: ["ليس هذا الأسبوع", "بضعة أيام", "معظم الأيام", "كل يوم"] },
+};
+const lx = k => LX[LANG][k];
+const fmtD = iso => iso ? new Date(iso + "T00:00:00").toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+// one series, one hue; the lab's range is a band; status is always written in words, never colour alone
+function labChart(s) {
+  const pts = s.points.filter(p => p.review_status !== "rejected");
+  if (pts.length < 2) return "";
+  const W = 320, H = 132, L = 36, R = 12, T = 12, B = 26;
+  const vals = pts.map(p => p.value), ref = (s.latest && s.latest.ref) || {};
+  const bounds = [ref.low, ref.high].filter(v => v != null);
+  const lo = Math.min(...vals, ...bounds), hi = Math.max(...vals, ...bounds);
+  const pad = (hi - lo || Math.abs(hi) || 1) * 0.18, y0 = Math.max(0, lo - pad), y1 = hi + pad;
+  const x = i => pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1);
+  const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  const band = (ref.low != null || ref.high != null) ? `<rect x="${L}" y="${y(ref.high ?? y1)}" width="${W - L - R}" height="${Math.max(0, y(ref.low ?? y0) - y(ref.high ?? y1))}" fill="var(--good)" opacity=".12"/>` : "";
+  const line = pts.length > 1 ? `<polyline points="${pts.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")}" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linejoin="round"/>` : "";
+  const dots = pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.value)}" r="5" fill="var(--brand)" stroke="var(--surface)" stroke-width="2"><title>${esc(fmtD(p.date))}: ${p.value} ${esc(s.unit)} (${esc(lx("st")[p.status])})</title></circle>`).join("");
+  const ticks = pts.map((p, i) => `<text x="${x(i)}" y="${H - 8}" font-size="10" text-anchor="${i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle"}" fill="var(--muted)">${esc(new Date(p.date + "T00:00:00").toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { month: "short", year: "2-digit" }))}</text>`).join("");
+  const limits = bounds.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--good)" stroke-dasharray="4 3"/><text x="${W - R}" y="${y(v) - 4}" font-size="10" text-anchor="end" fill="var(--muted)">${LANG === "ar" ? "حد المختبر" : "lab limit"} ${v}</text>`).join("");
+  const axis = [y0, y1].map(v => `<text x="${L - 6}" y="${y(v) + 3}" font-size="10" text-anchor="end" fill="var(--muted)">${+v.toFixed(1)}</text>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(s.name)}: ${pts.map(p => `${fmtD(p.date)} ${p.value}`).join(", ")}" style="max-width:420px;display:block" dir="ltr">
+    ${band}${limits}<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>${axis}${line}${dots}${ticks}</svg>`;
+}
+
+async function renderLabs() {
+  rerender = renderLabs;
+  setWide(false);
+  const tl = await API.get(`/api/me/labs?lang=${LANG}`);
+  const card = s => {
+    const l = s.latest;
+    const refTxt = l ? (l.ref_used === "lab" ? `${lx("lab")}: ${esc(l.ref.text || [l.ref.low, l.ref.high].filter(v => v != null).join("–"))}` : lx("typical")) : "";
+    return `<div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="spacer"></span>
+        ${l ? `<span class="tag">${esc(lx("st")[l.status])}</span>` : ""}</div>
+      ${l ? `<p style="margin:6px 0"><b style="font-size:1.4em">${l.value}</b> ${esc(s.unit)} <span class="muted small">${lx("latest")}, ${esc(fmtD(l.date))}</span></p>
+        <p class="muted small" style="margin:0">${refTxt}</p>` : ""}
+      ${s.change ? `<p class="small">${esc(lx("dir")[s.change.direction])} (${s.change.diff > 0 ? "+" : ""}${s.change.diff} ${esc(s.unit)} ${esc(lx("since")(fmtD(s.change.since)))})</p>` : ""}
+      ${labChart(s)}
+      ${l && l.notes.length ? `<ul class="small">${l.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+      ${s.advice.length ? `<p class="small"><b>${s.advice.map(esc).join("<br>")}</b></p>` : ""}
+      <details><summary class="small">${lx("table")}</summary><table class="small"><tr><th>${lx("date")}</th><th>${lx("value")}</th><th>${lx("status")}</th><th></th></tr>
+        ${s.points.map(p => `<tr style="${p.review_status === "rejected" ? "text-decoration:line-through;opacity:.6" : ""}"><td>${esc(fmtD(p.date))}${p.lab_name ? `<br><span class="muted">${esc(p.lab_name)}</span>` : ""}</td>
+          <td>${p.value} ${esc(s.unit)}</td><td>${esc(lx("st")[p.status])}<br><span class="muted">${esc(lx("rev")[p.review_status])}${p.review_note ? `: ${esc(p.review_note)}` : ""}</span></td>
+          <td><button class="chip" data-del="${p.id}">${lx("del")}</button></td></tr>`).join("")}</table></details></div>`;
+  };
+  view().innerHTML = `<h1>${lx("labsT")}</h1><p class="lead">${lx("labsSub")}</p>
+    ${tl.pending_review ? `<p class="small muted">${esc(lx("pendingN")(tl.pending_review))}</p>` : ""}
+    ${tl.series.length ? tl.series.map(card).join("") : `<div class="card"><p>${lx("labsNone")}</p></div>`}
+    <p class="muted small">${esc(tl.note)}</p><p><button class="btn ghost" id="lxBack">${t("jOpen")}</button></p>`;
+  $("#lxBack").onclick = () => renderJourney();
+  $$("[data-del]").forEach(b => b.onclick = async () => { await API.del(`/api/me/labs/${b.dataset.del}`); renderLabs(); });
+}
+
+// adherence bars: one hue, height = days kept; empty weeks drawn as a faint outline
+function weekBars(it) {
+  const W = 300, H = 70, gap = 4, bw = (W - gap * 11) / 12;
+  return `<svg viewBox="0 0 ${W} ${H + 14}" width="100%" style="max-width:380px;display:block" dir="ltr" role="img" aria-label="${esc(it.label)}: ${it.weeks.filter(w => w.adherence != null).map(w => `week ${w.week} ${lx("adherence")[w.adherence]}`).join(", ")}">
+    ${it.weeks.map((w, i) => { const x = i * (bw + gap); const h = w.adherence == null ? 0 : 8 + (H - 8) * w.adherence / 3;
+      return w.adherence == null ? `<rect x="${x}" y="${H - 6}" width="${bw}" height="6" rx="2" fill="none" stroke="var(--line)"/>`
+        : `<rect x="${x}" y="${H - h}" width="${bw}" height="${h}" rx="3" fill="var(--brand)"><title>${lx("week")(w.week, 12)}: ${esc(lx("adherence")[w.adherence])}${w.value != null ? `, ${w.value}` : ""}</title></rect>`; }).join("")}
+    <text x="0" y="${H + 12}" font-size="10" fill="var(--muted)">1</text><text x="${W}" y="${H + 12}" font-size="10" text-anchor="end" fill="var(--muted)">12</text></svg>`;
+}
+
+async function renderPlan() {
+  rerender = renderPlan;
+  setWide(false);
+  const { plan } = await API.get(`/api/me/plan?lang=${LANG}`);
+  const back = `<p><button class="btn ghost" id="pnBack">${t("jOpen")}</button></p>`;
+  if (!plan || plan.status === "stopped") {
+    const aid = S.aid;
+    const o = await API.get(`/api/assessments/${aid}/plan-options?lang=${LANG}`);
+    view().innerHTML = `<h1>${lx("planT")}</h1><p class="lead">${lx("planSub")}</p>
+      <div class="card"><h3>${lx("planPick")}</h3><div id="pnOpts">${o.options.map(x => `<label class="check"><input type="checkbox" value="${esc(x.node)}"><div><b>${esc(x.label)}</b><br><span class="small">${esc(x.action)}</span></div></label>`).join("")}</div>
+      <p class="muted small">${o.doctor_review ? lx("planReview") : lx("planSelf")}</p>
+      <p class="row"><button class="btn" id="pnGo">${lx("planStart")}</button><span class="small" id="pnMsg" role="status"></span></p></div>${back}`;
+    const boxes = $$("#pnOpts input");
+    boxes.forEach(b => b.onchange = () => { const n = boxes.filter(x => x.checked).length; boxes.forEach(x => { x.disabled = !x.checked && n >= o.max; }); });
+    $("#pnGo").onclick = async () => {
+      const nodes = boxes.filter(x => x.checked).map(x => x.value);
+      if (!nodes.length) { $("#pnMsg").textContent = lx("planPick"); return; }
+      try { await API.post(`/api/assessments/${aid}/plan?lang=${LANG}`, { nodes }); renderPlan(); } catch (e) { $("#pnMsg").textContent = e.message; }
+    };
+    $("#pnBack").onclick = () => renderJourney();
+    return;
+  }
+  const head = `<h1>${lx("planT")}</h1>`;
+  if (plan.status === "proposed") {
+    view().innerHTML = `${head}<div class="card"><p>${lx("planWait")}</p><ul>${plan.items.map(i => `<li><b>${esc(i.label)}</b>: ${esc(i.action)}</li>`).join("")}</ul></div>${back}`;
+    $("#pnBack").onclick = () => renderJourney();
+    return;
+  }
+  const done = plan.status === "completed";
+  const form = plan.due ? `<div class="card" style="border-inline-start:4px solid var(--saffron)"><h2>${lx("due")}</h2>
+      ${plan.items.map(i => `<div class="pn-item" data-n="${esc(i.node)}"><h3>${esc(i.label)}</h3><p class="small muted">${esc(i.action)}</p>
+        <p class="small">${lx("howWent")}</p><div class="opts">${lx("adherence").map((a, k) => `<span class="opt" data-a="${k}">${esc(a)}</span>`).join("")}</div>
+        ${i.measure ? `<label class="small">${esc(i.measure.label)} <input type="number" class="pn-val" min="${i.measure.min}" max="${i.measure.max}" step="0.1" style="width:110px"></label>` : ""}</div>`).join("")}
+      <p class="small">${lx("energy")}</p><div class="opts" id="pnEnergy">${[1, 2, 3, 4, 5].map(k => `<span class="opt" data-e="${k}">${k}</span>`).join("")}</div>
+      <p class="row"><button class="btn" id="pnSave">${lx("saveCheck")}</button><span class="small" id="pnMsg" role="status"></span></p></div>` : "";
+  view().innerHTML = `${head}<p class="lead">${done ? lx("done") : esc(lx("week")(plan.week, plan.weeks))}</p>
+    ${done ? `<p><button class="btn" id="pnRecheck">${lx("recheck")}</button></p>` : ""}
+    ${plan.doctor_note ? `<div class="card"><h3>${lx("doctorSays")}</h3><p>${esc(plan.doctor_note)}</p></div>` : ""}
+    ${form}
+    <div class="card"><h2>${lx("trend")}</h2>${plan.items.map(i => `<h3>${esc(i.label)}</h3>
+      <p class="small muted">${esc(lx("logged")(i.summary.weeks_logged))}${i.measure && i.summary.first != null ? `. ${esc(i.measure.label)}: ${lx("first")} ${i.summary.first}, ${lx("now")} ${i.summary.latest}` : ""}</p>
+      ${i.summary.weeks_logged ? weekBars(i) : `<p class="small muted">${lx("noTrend")}</p>`}`).join("")}</div>
+    ${done ? "" : `<div class="card"><h3>${lx("remind")}</h3><p class="small muted">${lx("remindSub")}</p><p class="row"><button class="btn ghost" id="pnCal">${lx("remindB")}</button>
+      <button class="chip" id="pnStop">${lx("stop")}</button></p></div>`}${back}`;
+  $("#pnBack").onclick = () => renderJourney();
+  $$(".pn-item .opt").forEach(o => o.onclick = () => { o.parentElement.querySelectorAll(".opt").forEach(x => x.classList.toggle("on", x === o)); });
+  $$("#pnEnergy .opt").forEach(o => o.onclick = () => $$("#pnEnergy .opt").forEach(x => x.classList.toggle("on", x === o)));
+  if ($("#pnSave")) $("#pnSave").onclick = async () => {
+    const items = {};
+    for (const el of $$(".pn-item")) {
+      const a = el.querySelector(".opt.on"), v = el.querySelector(".pn-val");
+      if (!a) { $("#pnMsg").textContent = lx("howWent"); return; }
+      items[el.dataset.n] = { adherence: Number(a.dataset.a), value: v && v.value !== "" ? Number(v.value) : null };
+    }
+    const e = $("#pnEnergy .opt.on");
+    try { await API.post(`/api/me/plan/checkin?lang=${LANG}`, { items, energy: e ? Number(e.dataset.e) : null }); renderPlan(); }
+    catch (err) { $("#pnMsg").textContent = err.message; }
+  };
+  if ($("#pnCal")) $("#pnCal").onclick = async () => {
+    await API.post("/api/me/plan/reminders", { enabled: true });
+    const r = await fetch("/api/me/plan/reminders.ics", { headers: { Authorization: `Bearer ${API.token}` } });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = "weekly-check-in.ics"; a.click();
+  };
+  if ($("#pnStop")) $("#pnStop").onclick = async () => { if (!confirm(lx("stopC"))) return; await API.del("/api/me/plan"); renderPlan(); };
+  if ($("#pnRecheck")) $("#pnRecheck").onclick = async () => {
+    S.aid = (await API.post("/api/assessments?channel=web")).id; store.set("aid", S.aid); store.del("done"); S.section = 0; intake();
   };
 }

@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS providers (
 CREATE TABLE IF NOT EXISTS appointments (
   id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, provider_id TEXT NOT NULL, status TEXT NOT NULL, prefs BLOB,
   created_at REAL NOT NULL, updated_at REAL, slot_at REAL, place_note BLOB, decided_by TEXT, confirmed_at REAL, reason TEXT, share_code TEXT);
+CREATE TABLE IF NOT EXISTS lab_results (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, assessment_id TEXT, collected_on TEXT, created_at REAL NOT NULL, review_status TEXT NOT NULL, data BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS plans (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, assessment_id TEXT NOT NULL, status TEXT NOT NULL, created_at REAL NOT NULL, start_at REAL,
+  items BLOB NOT NULL, reminders INTEGER DEFAULT 0, reviewed_by TEXT, reviewed_at REAL, review_note BLOB);
+CREATE TABLE IF NOT EXISTS checkins (
+  plan_id TEXT NOT NULL, week INTEGER NOT NULL, ts REAL NOT NULL, data BLOB NOT NULL, PRIMARY KEY (plan_id, week));
 """
 
 

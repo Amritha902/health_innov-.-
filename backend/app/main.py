@@ -504,7 +504,20 @@ def export_me(user=Depends(current_user)):
             "assessments": [{"id": r["id"], "started_at": r["started_at"], "completed_at": r["completed_at"],
                              "answers": security.unseal(r["answers"]), "device_summary": security.unseal(r["wearable"]),
                              "test_result": security.unseal(r["semen"]), "blood_tests": security.unseal(r["labs"]),
-                             "result": security.unseal(r["result"]), "messages": _msgs_for(r["id"])} for r in rows]}
+                             "result": security.unseal(r["result"]), "messages": _msgs_for(r["id"])} for r in rows],
+            "lab_results": _labs_export(user), "plans": _plans_export(user)}
+
+
+def _labs_export(user):
+    from .labintel import timeline
+    return timeline(user)["series"]
+
+
+def _plans_export(user):
+    from .companion import plan_view
+    with db.tx() as c:
+        rows = c.execute("SELECT * FROM plans WHERE user_id=? ORDER BY created_at", (user,)).fetchall()
+    return [plan_view(r) for r in rows]
 
 
 def _msgs_for(aid):
@@ -525,6 +538,9 @@ def delete_me(user=Depends(current_user)):
             c.execute("DELETE FROM partner_links WHERE assessment_id=?", (aid,))
             c.execute("DELETE FROM appointments WHERE assessment_id=?", (aid,))
             c.execute("UPDATE events SET assessment_id=NULL WHERE assessment_id=?", (aid,))
+        c.execute("DELETE FROM lab_results WHERE user_id=?", (user,))
+        c.execute("DELETE FROM checkins WHERE plan_id IN (SELECT id FROM plans WHERE user_id=?)", (user,))
+        c.execute("DELETE FROM plans WHERE user_id=?", (user,))
         c.execute("DELETE FROM assessments WHERE user_id=?", (user,))
         c.execute("DELETE FROM consents WHERE user_id=?", (user,))
         c.execute("DELETE FROM users WHERE id=?", (user,))
@@ -1348,6 +1364,11 @@ def conversation_demo(body: DemoIn, request: Request):
 from .care import router as care_router, metrics as care_metrics  # noqa: E402
 
 app.include_router(care_router)
+from .labintel import router as labs_router  # noqa: E402
+from .companion import router as companion_router  # noqa: E402
+
+app.include_router(labs_router)
+app.include_router(companion_router)
 
 
 # ------------------------------------------------------------------ static web app

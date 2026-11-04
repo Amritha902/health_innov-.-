@@ -1,5 +1,5 @@
 /* Caches the app shell so it opens instantly and offline. API responses (health data) are never cached. */
-const SHELL = "riaya-shell-v3";
+const SHELL = "riaya-shell-v4";
 const FILES = ["/", "/index.html", "/chat.html", "/fabric.html", "/partner.html", "/css/app.css", "/js/common.js", "/js/i18n.js",
   "/js/app.js", "/js/chat.js", "/js/nlu.js", "/js/voice.js", "/manifest.webmanifest", "/icons/icon-192.png",
   "/fonts/ibm-plex-sans-latin-400-normal.woff2", "/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2", "/fonts/noto-kufi-arabic-arabic-500-normal.woff2"];

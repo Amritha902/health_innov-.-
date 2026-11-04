@@ -588,3 +588,96 @@ def test_care_connect(client):
     client.post(f"/api/clinician/providers/{pid}/confirm", headers=ch, json={"note": "Called reception; urology accepts referrals"})
     p = next(x for x in client.get("/api/providers").json()["providers"] if x["id"] == pid)
     assert p["confirmed_at"] and "reception" in p["confirm_note"]
+
+
+TABLE_REPORT = """Al Noor Lab   Collection date: 02/11/2026   Collected at 08:15   Fasting
+Test                 Result   Unit     Reference range
+Total Testosterone   9.1      nmol/L   12.0 - 35.0   L
+FSH                  6.2      IU/L     1.5 - 12.4
+Sperm concentration  11.5 million/mL  >= 16  L
+Abstinence           1 days
+"""
+
+
+def test_lab_intelligence(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": BASE}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    r = client.post(f"/api/assessments/{aid}/lab-report", headers=h, data={"text": TABLE_REPORT}).json()
+    t = next(v for v in r["values"] if v["field"] == "testosterone")
+    # the lab's own range is kept, not a generic one
+    assert t["ref"] == {"low": 12.0, "high": 35.0, "text": "12.0 - 35.0"} and t["lab_flag"] == "low" and r["table"]
+    assert r["context"] == {"abstinence_days": 1.0, "time": "08:15", "fasting": True} and r["date"] == "2026-11-02"
+    vals = [{"field": v["field"], "value": v["value"], "ref_low": (v["ref"] or {}).get("low"), "ref_high": (v["ref"] or {}).get("high"),
+             "ref_text": v["reference"], "extracted_value": v["value"], "score": v["score"], "line": v["line"]}
+            for v in r["values"] if v["field"] != "abstinence_days"]
+    bad = client.post("/api/me/labs", headers=h, json={"assessment_id": aid, "values": [{"field": "fsh", "value": 900}]})
+    assert bad.status_code == 400 and "outside what a lab can report" in bad.json()["detail"]
+    client.post("/api/me/labs", headers=h, json={"assessment_id": aid, "collected_on": "2026-08-01", "lab_name": "Other lab", "abstinence_days": 4,
+                                                 "values": [{"field": "concentration_m_per_ml", "value": 9.0}]})
+    client.post("/api/me/labs", headers=h, json={"assessment_id": aid, "collected_on": r["date"], "lab_name": "Al Noor Lab",
+                                                 "abstinence_days": 1, "time": "08:15", "fasting": True, "values": vals})
+    tl = client.get("/api/me/labs", headers=h).json()
+    conc = next(s for s in tl["series"] if s["field"] == "concentration_m_per_ml")
+    assert [p["value"] for p in conc["points"]] == [9.0, 11.5] and conc["change"]["direction"] == "better"
+    assert any("2–7 days" in n for n in conc["latest"]["notes"]) and any("different labs" in a for a in conc["advice"])
+    tt = next(s for s in tl["series"] if s["field"] == "testosterone")
+    assert tt["latest"]["status"] == "low" and tt["latest"]["ref_used"] == "lab" and any("second early-morning" in a for a in tt["advice"])
+    assert tl["pending_review"] >= 3
+    # doctor reconciles: correcting needs a reason, and the corrected value is what he then sees
+    ch = clinician(client)
+    pend = [x for x in client.get("/api/clinician/labs/pending", headers=ch).json()["results"] if x["assessment_id"] == aid]
+    fsh = next(x for x in pend if x["field"] == "fsh")
+    assert fsh["line"] and fsh["score"] is not None
+    assert client.post(f"/api/clinician/labs/{fsh['id']}", headers=ch, json={"action": "correct", "value": 6.0}).status_code == 400
+    client.post(f"/api/clinician/labs/{fsh['id']}", headers=ch, json={"action": "correct", "value": 6.0, "note": "Report says 6.0; OCR misread"})
+    first = next(x for x in pend if x["field"] == "concentration_m_per_ml" and x["value"] == 9.0)
+    client.post(f"/api/clinician/labs/{first['id']}", headers=ch, json={"action": "reject", "note": "Different patient's report"})
+    tl = client.get("/api/me/labs", headers=h).json()
+    f = next(s for s in tl["series"] if s["field"] == "fsh")["latest"]
+    assert f["value"] == 6.0 and f["review_status"] == "corrected" and "OCR" in f["review_note"]
+    conc = next(s for s in tl["series"] if s["field"] == "concentration_m_per_ml")
+    assert conc["change"] is None and conc["latest"]["value"] == 11.5
+    assert client.get(f"/api/clinician/cases/{aid}/labs", headers=ch).status_code == 200
+    assert client.get("/api/me/export", headers=h).json()["lab_results"]
+
+
+def test_companion(client):
+    import time as _t
+    from app import companion
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": BASE}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    opts = client.get(f"/api/assessments/{aid}/plan-options", headers=h).json()
+    nodes = [o["node"] for o in opts["options"]]
+    assert opts["doctor_review"] and "smoking" in nodes and "sleep_loss" in nodes
+    assert client.post(f"/api/assessments/{aid}/plan", headers=h, json={"nodes": ["varicocele_not_mine"]}).status_code == 400
+    p = client.post(f"/api/assessments/{aid}/plan", headers=h, json={"nodes": ["smoking", "sleep_loss", "tight_underwear"]}).json()
+    assert p["status"] == "proposed" and p["items"][0]["measure"]["key"] == "cigs_per_day"
+    assert client.post("/api/me/plan/checkin", headers=h, json={"items": {}}).status_code == 409
+    ch = clinician(client)
+    q = next(x for x in client.get("/api/clinician/plans", headers=ch).json()["plans"] if x["assessment_id"] == aid)
+    assert client.post(f"/api/clinician/plans/{q['id']}", headers=ch, json={"action": "change", "remove": ["tight_underwear"]}).status_code == 400
+    client.post(f"/api/clinician/plans/{q['id']}", headers=ch, json={"action": "change", "remove": ["tight_underwear"], "note": "Start with two goals"})
+    p = client.get("/api/me/plan", headers=h).json()["plan"]
+    assert p["status"] == "active" and p["week"] == 1 and p["due"] and [i["node"] for i in p["items"]] == ["smoking", "sleep_loss"]
+    assert p["doctor_note"] == "Start with two goals"
+    r = client.post("/api/me/plan/checkin", headers=h, json={"items": {"smoking": {"adherence": 1, "value": 120}, "sleep_loss": {"adherence": 2}}})
+    assert r.status_code == 400 and "between 0 and 80" in r.json()["detail"]
+    client.post("/api/me/plan/checkin", headers=h, json={"items": {"smoking": {"adherence": 1, "value": 12}, "sleep_loss": {"adherence": 2, "value": 6}}, "energy": 3})
+    # three weeks later: catch up on last week, and the trend shows the change
+    real = companion._now
+    companion._now = lambda: real() + 3 * 7 * 86400 + 60
+    try:
+        assert client.post("/api/me/plan/checkin", headers=h, json={"week": 1, "items": {"smoking": {"adherence": 3}, "sleep_loss": {"adherence": 3}}}).status_code == 400
+        client.post("/api/me/plan/checkin", headers=h, json={"items": {"smoking": {"adherence": 3, "value": 4}, "sleep_loss": {"adherence": 3, "value": 7.2}}})
+        p = client.get("/api/me/plan", headers=h).json()["plan"]
+        s = p["items"][0]["summary"]
+        assert p["week"] == 4 and s["first"] == 12 and s["latest"] == 4 and s["weeks_logged"] == 2 and not p["due"]
+        ics = client.get("/api/me/plan/reminders.ics", headers=h)
+        assert "SUMMARY:Weekly check-in" in ics.text and "COUNT=9" in ics.text and "smok" not in ics.text.lower()
+        companion._now = lambda: real() + 13 * 7 * 86400
+        assert client.get("/api/me/plan", headers=h).json()["plan"]["status"] == "completed"
+    finally:
+        companion._now = real
+    assert client.get("/api/me/export", headers=h).json()["plans"]

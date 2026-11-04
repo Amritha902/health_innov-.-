@@ -24,10 +24,10 @@ async function start() {
   $("#logout").onclick = async () => { try { await API.post("/api/clinician/logout"); } catch {} sessionStorage.removeItem("ctoken"); location.reload(); };
   GRAPH = GRAPH || await API.get("/api/graph");
   $("#view").innerHTML = `<div class="tabs row" style="margin-bottom:12px">
-    <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="appointments">Appointments</button><button class="chip" data-t="clinics">Clinics</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
+    <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="labReview">Lab review</button><button class="chip" data-t="plans">Plans</button><button class="chip" data-t="appointments">Appointments</button><button class="chip" data-t="clinics">Clinics</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
     <button class="chip" data-t="audit">Access log</button><a class="chip" href="insights.html">Programme dashboard</a><span class="spacer"></span>
     <input type="text" id="code" placeholder="Share code" style="width:160px"><button class="chip" id="open">Open</button></div><div id="tab"></div>`;
-  $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, appointments, clinics, metrics, audit })[b.dataset.t](); });
+  $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, labReview, plans, appointments, clinics, metrics, audit })[b.dataset.t](); });
   $("#open").onclick = async () => {
     try { const r = await API.post(`/api/clinician/share/${$("#code").value.trim()}`); await queue(); openCase(r.assessment_id); }
     catch (e) { alert(e.message); }
@@ -338,4 +338,56 @@ async function clinics() {
       clinics();
     } catch (e) { $("#pMsg").textContent = e.message; }
   };
+}
+
+const LAB_NAMES = { volume_ml: "Semen volume", concentration_m_per_ml: "Sperm concentration", total_count_m: "Total sperm count", progressive_motility_pct: "Progressive motility",
+  total_motility_pct: "Total motility", normal_forms_pct: "Normal forms", vitality_pct: "Vitality", ph: "pH", testosterone: "Total testosterone", fsh: "FSH", lh: "LH", hba1c: "HbA1c", vitamin_d: "Vitamin D" };
+
+async function labReview() {
+  const r = await API.get("/api/clinician/labs/pending");
+  $("#tab").innerHTML = `<p class="muted">Values he saved from his own reports. Compare each one with the line it was read from, then accept it, correct it to what the report says, or set it aside. He sees your decision and reason.</p>
+    ${r.results.length ? "" : `<p class="muted">Nothing waiting. New lab values appear here once a patient who agreed to doctor review saves them.</p>`}
+    <table><tr><th>Test</th><th>Saved value</th><th>Read from the report</th><th>Lab's range</th><th>Collection</th><th>Decision</th></tr>
+    ${r.results.map(x => `<tr data-id="${x.id}"><td><b>${esc(LAB_NAMES[x.field] || x.field)}</b><br><span class="small muted">${esc(x.date || "")}${x.lab_name ? `, ${esc(x.lab_name)}` : ""}</span></td>
+      <td>${x.value} ${esc(x.unit)}${x.edited_by_user ? `<br><span class="tag">he changed it from ${x.extracted_value}</span>` : ""}${x.score != null ? `<br><span class="small muted">reading confidence ${Math.round(x.score * 100)}%</span>` : ""}</td>
+      <td class="small" dir="ltr" style="max-width:280px">${esc(x.line || "Entered by hand")}</td>
+      <td class="small">${x.ref_used === "lab" ? esc(x.ref.text || "") : "none printed"}${x.lab_flag ? `<br>flag: ${esc(x.lab_flag)}` : ""}<br>${esc(x.status)}</td>
+      <td class="small">${x.notes.length ? x.notes.map(esc).join("<br>") : "No concerns"}</td>
+      <td><div class="row"><button class="chip ok">Accept</button><input type="number" step="0.01" class="cv" placeholder="Correct to" style="width:100px">
+        <input type="text" class="cn" maxlength="300" placeholder="Reason (needed to correct or set aside)" style="min-width:200px">
+        <button class="chip fix">Correct</button><button class="chip rej">Set aside</button><button class="chip openc">Open case</button><span class="small msg" role="status"></span></div></td></tr>`).join("")}</table>`;
+  $$("#tab tr[data-id]").forEach(row => {
+    const $r = s => row.querySelector(s), id = row.dataset.id, item = r.results.find(x => x.id === id);
+    const go = async body => { try { await API.post(`/api/clinician/labs/${id}`, body); labReview(); } catch (e) { $r(".msg").textContent = e.message; } };
+    $r(".ok").onclick = () => go({ action: "accept" });
+    $r(".fix").onclick = () => go({ action: "correct", value: $r(".cv").value === "" ? null : Number($r(".cv").value), note: $r(".cn").value });
+    $r(".rej").onclick = () => go({ action: "reject", note: $r(".cn").value });
+    $r(".openc").onclick = async () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x.dataset.t === "queue")); await queue(); openCase(item.assessment_id); };
+  });
+}
+
+async function plans() {
+  const r = await API.get("/api/clinician/plans");
+  const proposed = r.plans.filter(p => p.status === "proposed"), active = r.plans.filter(p => p.status !== "proposed");
+  const pct = v => v == null ? "not yet" : Math.round(v * 100) + "%";
+  $("#tab").innerHTML = `<h2>Plans to review <span class="muted">(${proposed.length})</span></h2>
+    ${proposed.length ? "" : `<p class="muted">No plans waiting. A patient's 12-week plan appears here when he starts one.</p>`}
+    ${proposed.map(p => `<div class="card" data-id="${p.id}"><p class="small muted">Proposed ${new Date(p.created_at * 1000).toLocaleDateString("en-GB")}</p>
+      ${p.items.map(i => `<label class="check"><input type="checkbox" class="keep" value="${esc(i.node)}" checked><div><b>${esc(i.label)}</b><br><span class="small">${esc(i.action)}</span>${i.measure ? `<br><span class="small muted">Tracks: ${esc(i.measure.label)}</span>` : ""}</div></label>`).join("")}
+      <textarea class="note" rows="2" maxlength="500" placeholder="A note he will see (needed if you remove a goal)"></textarea>
+      <div class="row"><button class="btn ap">Approve and start</button><button class="chip openc">Open case</button><span class="small msg" role="status"></span></div></div>`).join("")}
+    <h2 style="margin-top:20px">Running plans <span class="muted">(${active.length})</span></h2>
+    ${active.length ? `<table><tr><th>Started</th><th>Week</th><th>Goal</th><th>Weeks logged</th><th>Last 4 weeks kept</th><th>First → latest</th></tr>
+      ${active.map(p => p.items.map((i, k) => `<tr>${k === 0 ? `<td rowspan="${p.items.length}">${new Date(p.start_at * 1000).toLocaleDateString("en-GB")}</td><td rowspan="${p.items.length}">${p.week} of ${p.weeks}${p.due ? "<br><span class=\"tag\">check-in due</span>" : ""}</td>` : ""}
+        <td>${esc(i.label)}</td><td>${i.summary.weeks_logged}</td><td>${pct(i.summary.recent_adherence)}</td>
+        <td>${i.summary.first != null ? `${i.summary.first} → ${i.summary.latest} <span class="small muted">${esc(i.measure.label)}</span>` : "—"}</td></tr>`).join("")).join("")}</table>` : `<p class="muted">None yet.</p>`}`;
+  $$("#tab [data-id]").forEach(card => {
+    const $c = s => card.querySelector(s), p = r.plans.find(x => x.id === card.dataset.id);
+    $c(".ap").onclick = async () => {
+      const remove = [...card.querySelectorAll(".keep")].filter(x => !x.checked).map(x => x.value), note = $c(".note").value;
+      try { await API.post(`/api/clinician/plans/${p.id}`, remove.length || note ? { action: remove.length ? "change" : "approve", remove, note } : { action: "approve" }); plans(); }
+      catch (e) { $c(".msg").textContent = e.message; }
+    };
+    $c(".openc").onclick = async () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x.dataset.t === "queue")); await queue(); openCase(p.assessment_id); };
+  });
 }
