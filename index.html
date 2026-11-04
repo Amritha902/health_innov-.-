@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Male Health Causal Map</title>
+<style>
+:root{--bg:#f7f7f5;--panel:#fff;--ink:#1d2327;--muted:#5f6b73;--line:#d9dde0;
+ --exposure:#2f7d6d;--condition:#c27a1a;--mechanism:#6a55b5;--outcome:#c0392b;--protect:#2b7bd6;--hl:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181a;--panel:#1e2225;--ink:#e8eaeb;--muted:#9aa5ac;--line:#353b40;
+ --exposure:#4fb3a0;--condition:#e3a24a;--mechanism:#9b88e6;--outcome:#ec6b5e;--protect:#5aa2f0;--hl:#fff}}
+:root[data-theme="dark"]{--bg:#15181a;--panel:#1e2225;--ink:#e8eaeb;--muted:#9aa5ac;--line:#353b40;
+ --exposure:#4fb3a0;--condition:#e3a24a;--mechanism:#9b88e6;--outcome:#ec6b5e;--protect:#5aa2f0;--hl:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+nav button{background:none;border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer;font:inherit}
+nav button.on{background:var(--ink);color:var(--bg)}
+main{display:none}main.on{display:block}
+#graphWrap{display:grid;grid-template-columns:1fr 360px;height:calc(100vh - 60px)}
+@media (max-width:800px){#graphWrap{grid-template-columns:1fr;height:auto}#svgBox{height:60vh}}
+#svgBox{position:relative;overflow:hidden}
+svg{width:100%;height:100%;display:block}
+.ctrl{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap;background:var(--panel);padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.ctrl input[type=search]{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:180px}
+.legend{position:absolute;bottom:10px;left:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px}
+.legend span{display:inline-flex;align-items:center;gap:4px;margin-right:10px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:16px}
+aside h2{font-size:16px;margin:0 0 4px}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;border:1px solid var(--line);color:var(--muted);margin-right:4px}
+.g{font-weight:700;font-size:11px;padding:0 5px;border-radius:4px;color:#fff}
+.gA{background:#2e7d32}.gB{background:#558b2f}.gC{background:#b7791f}.gD{background:#8d6e63}
+.edge{padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.edge a{color:var(--ink);cursor:pointer;text-decoration:underline}
+.note{color:var(--muted);font-size:12px}
+details{font-size:12px;color:var(--muted)}
+.path{font-size:13px;padding:4px 0}
+.link{stroke-opacity:.35}
+.node text{font-size:10px;fill:var(--ink);pointer-events:none}
+.dim{opacity:.08}
+/* fabric */
+.card{max-width:720px;margin:20px auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+.card label{display:block;font-size:13px;color:var(--muted);margin-top:12px}
+.card input,.card select,.card textarea{width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:600px){.row{grid-template-columns:1fr}}
+.btn{margin-top:14px;background:var(--ink);color:var(--bg);border:0;padding:10px 16px;border-radius:6px;font:inherit;cursor:pointer}
+.verdict{font-size:20px;font-weight:700;margin:16px 0 4px}
+.v-good{color:var(--exposure)}.v-okay{color:var(--condition)}.v-caution{color:var(--outcome)}
+.meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.meter div{height:100%}
+.disc{font-size:12px;color:var(--muted);margin-top:16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Male Reproductive Health — Causal Map</h1>
+  <nav><button data-tab="graph" class="on">Causal graph</button> <button data-tab="fabric">Fabric check</button></nav>
+</header>
+
+<main id="graph" class="on">
+  <div id="graphWrap">
+    <div id="svgBox">
+      <svg id="svg"></svg>
+      <div class="ctrl">
+        <input type="search" id="q" placeholder="Search factor…" list="nodeList">
+        <datalist id="nodeList"></datalist>
+        <label><input type="checkbox" id="strong"> Only grade A/B evidence</label>
+        <button id="reset" class="tag" style="cursor:pointer">Reset</button>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--exposure)"></i>Exposure</span>
+        <span><i class="dot" style="background:var(--condition)"></i>Condition</span>
+        <span><i class="dot" style="background:var(--mechanism)"></i>Mechanism</span>
+        <span><i class="dot" style="background:var(--outcome)"></i>Outcome</span>
+        <span>— solid A/B · - - dashed C/D · blue = protective</span>
+      </div>
+    </div>
+    <aside id="panel">
+      <h2>How to read this</h2>
+      <p>Every risk signal in the app is traced through this graph: <b>exposure → condition → mechanism → outcome</b>. Click any node to see what causes it, what it causes, the evidence grade and the source.</p>
+      <p><span class="g gA">A</span> meta-analysis / guideline · <span class="g gB">B</span> human observational · <span class="g gC">C</span> animal / small / extrapolated · <span class="g gD">D</span> plausible only (never drives a score)</p>
+      <div id="stats" class="note"></div>
+    </aside>
+  </div>
+</main>
+
+<main id="fabric">
+  <div class="card">
+    <h2 style="margin-top:0">Fabric check</h2>
+    <p class="note">Paste or photograph a care label. We estimate how much the garment may warm the groin, which is the factor with the strongest evidence, and add notes on the fibres.</p>
+    <label>Care-label composition</label>
+    <textarea id="comp" rows="2">60% Polyester 35% Viscose 5% Elastane</textarea>
+    <label>…or photo of the label (read on your device; the photo is not uploaded)</label>
+    <input type="file" id="photo" accept="image/*" capture="environment">
+    <div id="ocrStatus" class="note"></div>
+    <div class="row">
+      <div><label>Garment</label><select id="garment"></select></div>
+      <div><label>Fit</label><select id="fit"><option value="tight">Tight / close-fitting</option><option value="regular" selected>Regular</option><option value="loose">Loose</option></select></div>
+    </div>
+    <button class="btn" id="check">Check</button>
+    <div id="fabricOut"></div>
+    <p class="disc">This is general wellness information, not a diagnosis. Clothing is one small, reversible factor. If you have concerns about fertility, the app will guide you to the right next step.</p>
+  </div>
+</main>
+
+<script src="knowledge/graph.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/fabric.js"></script>
+<script src="vendor/d3-7.8.5.min.js"></script>
+<script>
+const byId = Object.fromEntries(KG.nodes.map(n => [n.id, n]));
+const ref = r => KG.references[r] || r;
+const gradeTag = g => `<span class="g g${g}">${g}</span>`;
+
+// ---------- tabs ----------
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button,main").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); document.getElementById(b.dataset.tab).classList.add("on");
+});
+
+// ---------- graph ----------
+const color = n => n.protective ? "var(--protect)" : `var(--${n.type})`;
+const svg = d3.select("#svg"), g = svg.append("g");
+svg.call(d3.zoom().scaleExtent([0.2, 4]).on("zoom", e => g.attr("transform", e.transform)));
+svg.append("defs").selectAll("marker").data(["ar", "arp"]).join("marker")
+  .attr("id", d => d).attr("viewBox", "0 -4 8 8").attr("refX", 16).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+  .append("path").attr("d", "M0,-4L8,0L0,4").attr("fill", d => d === "arp" ? "var(--protect)" : "var(--muted)");
+
+const colX = { exposure: 0.12, condition: 0.38, mechanism: 0.62, outcome: 0.88 };
+let link, node, sim;
+document.getElementById("nodeList").innerHTML = KG.nodes.map(n => `<option value="${n.label}">`).join("");
+document.getElementById("stats").textContent =
+  `${KG.nodes.length} factors · ${KG.edges.length} cited links · ${Object.keys(KG.references).length} sources · ${KG.redFlags.length} red flags`;
+
+function draw() {
+  const strong = document.getElementById("strong").checked;
+  const edges = KG.edges.filter(e => !strong || "AB".includes(e.grade)).map(e => ({ ...e }));
+  const nodes = KG.nodes.map(n => ({ ...n }));
+  const W = document.getElementById("svgBox").clientWidth, H = document.getElementById("svgBox").clientHeight;
+  g.selectAll("*").remove();
+  link = g.append("g").selectAll("line").data(edges).join("line").attr("class", "link")
+    .attr("stroke", d => d.sign === "-" ? "var(--protect)" : "var(--muted)")
+    .attr("stroke-width", d => ({ A: 2, B: 1.5, C: 1, D: 1 })[d.grade])
+    .attr("stroke-dasharray", d => "CD".includes(d.grade) ? "4 3" : null)
+    .attr("marker-end", d => d.sign === "-" ? "url(#arp)" : "url(#ar)");
+  node = g.append("g").selectAll("g").data(nodes).join("g").attr("class", "node").style("cursor", "pointer")
+    .on("click", (_, d) => select(d.id))
+    .call(d3.drag().on("start", (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; }).on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
+  node.append("circle").attr("r", d => d.terminal ? 9 : 6).attr("fill", color).attr("stroke", "var(--panel)").attr("stroke-width", 1.5);
+  node.append("text").attr("x", 10).attr("dy", 3).text(d => d.label.length > 34 ? d.label.slice(0, 32) + "…" : d.label);
+  sim = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(edges).id(d => d.id).distance(70).strength(.2))
+    .force("charge", d3.forceManyBody().strength(-160))
+    .force("x", d3.forceX(d => colX[d.type] * Math.max(W, 900)).strength(.6))
+    .force("y", d3.forceY(H / 2).strength(.04))
+    .force("collide", d3.forceCollide(18))
+    .on("tick", () => {
+      link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+      node.attr("transform", d => `translate(${d.x},${d.y})`);
+    });
+}
+
+function select(id) {
+  const n = byId[id];
+  const up = Engine.upstream(KG, id), down = Engine.downstream(KG, id);
+  const keep = new Set([id, ...up.keys(), ...down.keys()]);
+  node.classed("dim", d => !keep.has(d.id));
+  link.classed("dim", d => !(keep.has(d.source.id) && keep.has(d.target.id) &&
+    ((up.has(d.source.id) || d.source.id === id) && (up.has(d.target.id) || d.target.id === id) ||
+     (down.has(d.target.id) || d.target.id === id) && (down.has(d.source.id) || d.source.id === id))));
+
+  const inE = KG.edges.filter(e => e.target === id), outE = KG.edges.filter(e => e.source === id);
+  const row = (e, other) => `<div class="edge">${gradeTag(e.grade)} ${e.sign === "-" ? "protects against" : ""}
+    <a onclick="select('${other}')">${byId[other].label}</a>${e.kind === "assoc" ? ' <span class="tag">association</span>' : ""}
+    ${e.note ? `<div class="note">${e.note}</div>` : ""}
+    <details><summary>Sources</summary>${e.refs.map(ref).join("<br>")}</details></div>`;
+  const paths = n.type === "exposure" || n.type === "condition" ? Engine.pathsFrom(KG, id, { target: "subfertility" }).slice(0, 5) : [];
+  document.getElementById("panel").innerHTML = `
+    <h2>${n.label}</h2>
+    <span class="tag">${n.type}</span>${n.modifiable === true ? '<span class="tag">modifiable</span>' : ""}${n.modifiable === false ? '<span class="tag">non-modifiable</span>' : ""}${n.local ? `<span class="tag">${n.local}</span>` : ""}${n.sensitive ? '<span class="tag">sensitive — ask gently</span>' : ""}
+    ${paths.length ? `<h3 style="font-size:14px">Strongest pathways to reduced fertility</h3>${paths.map(p => `<div class="path">${gradeTag(p.grade)} ${Engine.explain(KG, p)}</div>`).join("")}` : ""}
+    <h3 style="font-size:14px">Leads to (${outE.length})</h3>${outE.map(e => row(e, e.target)).join("") || '<p class="note">End point.</p>'}
+    <h3 style="font-size:14px">Caused / driven by (${inE.length})</h3>${inE.map(e => row(e, e.source)).join("") || '<p class="note">Starting factor.</p>'}
+    <p class="note" style="margin-top:12px">Upstream factors: ${up.size} · downstream effects: ${down.size}</p>`;
+}
+window.select = select;
+document.getElementById("q").onchange = e => { const n = KG.nodes.find(n => n.label === e.target.value || n.label.toLowerCase().includes(e.target.value.toLowerCase())); if (n) select(n.id); };
+document.getElementById("strong").onchange = draw;
+document.getElementById("reset").onclick = () => { node.classed("dim", false); link.classed("dim", false); };
+draw(); addEventListener("resize", () => { clearTimeout(window._r); window._r = setTimeout(draw, 200); });
+
+// ---------- fabric ----------
+document.getElementById("garment").innerHTML = Object.entries(Fabric.GARMENTS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+document.getElementById("check").onclick = () => {
+  const r = Fabric.assess(document.getElementById("comp").value, document.getElementById("garment").value, document.getElementById("fit").value);
+  const out = document.getElementById("fabricOut");
+  if (!r.ok) { out.innerHTML = `<p>${r.message}</p>`; return; }
+  const label = { good: "Good choice", okay: "Okay", caution: "Consider an alternative" }[r.verdict];
+  out.innerHTML = `<div class="verdict v-${r.verdict}">${label}</div>
+    <div class="meter"><div style="width:${r.score}%;background:var(--${r.verdict === "good" ? "exposure" : r.verdict === "okay" ? "condition" : "outcome"})"></div></div>
+    <p class="note">Groin-heat index ${r.score}/100 · breathability ${Math.round(r.breathability * 100)}% · synthetic ${Math.round(r.synthetic * 100)}% · read as ${Object.entries(r.composition).map(([k, v]) => v + "% " + k).join(", ")}</p>
+    ${r.notes.map(n => `<div class="edge">${gradeTag(n.grade)} ${n.text}<details><summary>Sources</summary>${n.refs.map(ref).join("<br>")}</details></div>`).join("")}
+    ${r.swaps.length ? `<h3 style="font-size:14px">Simple swaps</h3><ul>${r.swaps.map(s => `<li>${s}</li>`).join("")}</ul>` : ""}
+    <p class="note">In the causal graph: <a href="#" onclick="document.querySelector('[data-tab=graph]').click();select('scrotal_heat');return false">Raised scrotal temperature →</a></p>`;
+};
+document.getElementById("photo").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const s = document.getElementById("ocrStatus"); s.textContent = "Reading label…";
+  try {
+    if (!window.Tesseract) await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+    const { data } = await Tesseract.recognize(f, "eng");
+    document.getElementById("comp").value = data.text.replace(/\s+/g, " ").trim();
+    s.textContent = "Label read. Check the text above, then press Check.";
+  } catch { s.textContent = "Couldn't read the photo. Please type the composition."; }
+};
+</script>
+</body>
+</html>
