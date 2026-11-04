@@ -6,6 +6,7 @@ import zipfile
 import pytest
 
 os.environ["RIAYA_DB"] = os.path.join(tempfile.mkdtemp(), "test.db")
+os.environ["RIAYA_ENABLE_DEMO_CLINICIAN"] = "true"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
