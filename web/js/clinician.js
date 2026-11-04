@@ -87,7 +87,7 @@ async function openCase(id) {
     <div class="grid2">
       <div class="card"><h3>Secure messages</h3><div id="thread" class="small"></div>
         <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="cmsg" placeholder="Message to patient (encrypted)"><button class="btn" id="csend">Send</button></div>
-        <p class="row" style="margin-top:10px"><button class="btn ghost" id="video">${c.referral && c.referral.video_url ? "Video room ready" : "Start video consult"}</button>
+        <p class="row" style="margin-top:10px"><button class="btn ghost" id="cnote">Record voice reply</button><button class="btn ghost" id="video">${c.referral && c.referral.video_url ? "Video room ready" : "Start video consult"}</button>
         ${c.referral && c.referral.video_url ? `<a href="${esc(c.referral.video_url)}" target="_blank" rel="noopener noreferrer">${esc(c.referral.video_url)}</a>` : ""}</p></div>
       <div class="card"><h3>Care navigation: handover package</h3>
         <p class="muted small">Structured referral letter and FHIR document bundle for the receiving clinic. It lists results already available so tests are not repeated, the genomic flag, and the patient's preferences.</p>
@@ -131,13 +131,15 @@ async function openCase(id) {
     $("#modify").onclick = () => decide("modify");
   }
   $$("[data-s]").forEach(b => b.onclick = async () => { await API.post(`/api/clinician/cases/${id}/status`, { status: b.dataset.s }); openCase(id); });
-  const thread = ms => $("#thread").innerHTML = ms.map(m => `<p><b>${m.sender === "user" ? "Patient" : "Clinician"}</b> <span class="muted">${fmt(m.ts)}</span><br>${esc(m.body)}</p>`).join("") || '<p class="muted">No messages yet.</p>';
+  const thread = ms => { $("#thread").innerHTML = ms.map(m => Notes.render(m, `/api/clinician/cases/${id}/voice-notes`, (m.sender === "user" ? "Patient" : "Clinician") + " · " + fmt(m.ts))).join("") || '<p class="muted">No messages yet.</p>'; Notes.wire($("#thread")); };
   thread(c.messages || []);
   $("#csend").onclick = async () => {
     const v = $("#cmsg").value.trim(); if (!v) return;
     await API.post(`/api/clinician/cases/${id}/messages`, { body: v }); $("#cmsg").value = "";
     thread(await API.get(`/api/clinician/cases/${id}/messages`));
   };
+  Notes.attach($("#cnote"), `/api/clinician/cases/${id}/voice-notes`, async () => thread(await API.get(`/api/clinician/cases/${id}/messages`)),
+    { record: "Record voice reply", stop: "Send", denied: "Microphone blocked", unsupported: "Not supported" });
   $("#video").onclick = async () => { await API.post(`/api/clinician/cases/${id}/video`); openCase(id); };
   const ho = () => API.get(`/api/clinician/cases/${id}/handover`);
   $("#hoView").onclick = async () => {

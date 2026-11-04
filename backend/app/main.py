@@ -579,6 +579,46 @@ def audit_log(clin=Depends(current_clinician)):
     return [dict(r) for r in rows]
 
 
+# ------------------------------------------------------------------ passive first look (device data only, no questions)
+PASSIVE_TEXT = {
+    "sleep_loss": ("Your sleep averages under 6 hours. Short sleep is linked to lower testosterone and sperm count.",
+                   "متوسط نومك أقل من ٦ ساعات. قلة النوم مرتبطة بانخفاض التستوستيرون وعدد الحيوانات المنوية."),
+    "circadian": ("Your weekend sleep shifts by 2+ hours. This 'social jet lag' is linked to poorer semen quality.",
+                  "يتغير نومك في عطلة الأسبوع بساعتين أو أكثر. هذا «الإرهاق الاجتماعي» مرتبط بجودة أقل للسائل المنوي."),
+    "osa": ("Your oxygen dipped below 90% on several nights. That can be a sign of sleep apnoea, which is common, treatable and affects hormones.",
+            "انخفض الأكسجين لديك عن ٩٠٪ في عدة ليالٍ. قد يكون ذلك علامة على انقطاع النفس أثناء النوم، وهو شائع وقابل للعلاج ويؤثر في الهرمونات."),
+    "sedentary": ("You average fewer than 5,000 steps a day.", "متوسط خطواتك أقل من ٥٠٠٠ خطوة يومياً."),
+    "caffeine_late": ("Caffeine is logged late in the day on most days.", "تُسجَّل الكافيين في وقت متأخر من اليوم معظم الأيام."),
+    "glycaemic_spikes": ("Your glucose often rises above 140 mg/dL at night.", "يرتفع السكر لديك كثيراً فوق ١٤٠ ملغ/دسل ليلاً."),
+    "screen_time_high": ("Your daily screen time is high.", "وقت الشاشة اليومي لديك مرتفع."),
+}
+
+
+@app.post("/api/assessments/{aid}/passive")
+def passive(aid: str, lang: str = "en", user=Depends(current_user)):
+    """What the devices alone suggest, before any question is asked."""
+    from . import features
+    row = own_assessment(aid, user)
+    w = security.unseal(row["wearable"])
+    if not w:
+        raise HTTPException(400, "Add device data first")
+    inputs, why, _ = features.build_inputs({}, w)
+    device = {n: v for n, v in inputs.items() if any(p["source"] in ("watch", "cgm", "phone") for p in why.get(n, []))}
+    g = graph()
+    attr = g.shapley(device)
+    i = 1 if lang == "ar" else 0
+    findings = []
+    for node in attr:
+        path = g.paths(node)
+        findings.append({"node": node, "text": PASSIVE_TEXT.get(node, (g.nodes[node]["label"],) * 2)[i],
+                         "label": g.nodes[node].get("label_ar" if i else "label"),
+                         "evidence": path[0]["grade"] if path else None,
+                         "sources": [p["reason"] for p in why[node]]})
+    db.event(aid, "passive_preview", str(len(findings)))
+    return {"summary": {k: w.get(k) for k in ("sleep_avg_h", "steps_avg", "social_jetlag_h", "spo2_low_nights", "night_glucose_high_pct", "late_caffeine_days_per_week", "resting_hr_avg", "hrv_sdnn_avg") if w.get(k) is not None},
+            "findings": findings}
+
+
 # ------------------------------------------------------------------ blood results
 class LabsIn(BaseModel):
     testosterone: Optional[float] = Field(None, ge=0, le=2000)
@@ -624,8 +664,70 @@ class MessageIn(BaseModel):
 
 
 def _messages(c, aid):
-    return [{"id": r["id"], "sender": r["sender"], "body": security.unseal(r["body"]), "ts": r["ts"]}
-            for r in c.execute("SELECT * FROM messages WHERE assessment_id=? ORDER BY ts", (aid,)).fetchall()]
+    return [{"id": r["id"], "sender": r["sender"], "body": security.unseal(r["body"]), "ts": r["ts"],
+             "voice": bool(r["audio"]), "seconds": r["seconds"]}
+            for r in c.execute("SELECT id, sender, body, ts, seconds, audio IS NOT NULL AS audio FROM messages WHERE assessment_id=? ORDER BY ts", (aid,)).fetchall()]
+
+
+MAX_NOTE = 3 * 1024 * 1024
+AUDIO_TYPES = ("audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-m4a", "audio/aac")
+
+
+async def _store_note(c, aid, sender, file, seconds):
+    raw = await file.read()
+    mime = (file.content_type or "").split(";")[0]
+    if len(raw) > MAX_NOTE:
+        raise HTTPException(413, "Voice note too long")
+    if mime not in AUDIO_TYPES:
+        raise HTTPException(415, "Unsupported audio type")
+    c.execute("INSERT INTO messages (id, assessment_id, sender, body, ts, audio, mime, seconds) VALUES (?,?,?,?,?,?,?,?)",
+              (str(uuid.uuid4()), aid, sender, security.seal(""), time.time(), security.fernet().encrypt(raw), mime, seconds))
+
+
+def _note(c, aid, mid):
+    from fastapi.responses import Response
+    r = c.execute("SELECT audio, mime FROM messages WHERE id=? AND assessment_id=?", (mid, aid)).fetchone()
+    if not r or not r["audio"]:
+        raise HTTPException(404, "Not found")
+    return Response(security.fernet().decrypt(r["audio"]), media_type=r["mime"], headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/assessments/{aid}/voice-notes")
+async def user_note(aid: str, file: UploadFile = File(...), seconds: float = Form(0), user=Depends(current_user)):
+    row = own_assessment(aid, user)
+    if not row["review_consent"]:
+        raise HTTPException(403, "Request a clinician review first")
+    with db.tx() as c:
+        await _store_note(c, aid, "user", file, seconds)
+    db.event(aid, "voice_note_user")
+    return {"ok": True}
+
+
+@app.get("/api/assessments/{aid}/voice-notes/{mid}")
+def user_note_get(aid: str, mid: str, user=Depends(current_user)):
+    own_assessment(aid, user)
+    with db.tx() as c:
+        return _note(c, aid, mid)
+
+
+@app.post("/api/clinician/cases/{aid}/voice-notes")
+async def clin_note(aid: str, file: UploadFile = File(...), seconds: float = Form(0), clin=Depends(current_clinician)):
+    with db.tx() as c:
+        if not _clinician_can_see(c, aid):
+            raise HTTPException(404, "Not found")
+        await _store_note(c, aid, "clinician", file, seconds)
+    db.audit(clin, "voice_note_sent", aid)
+    return {"ok": True}
+
+
+@app.get("/api/clinician/cases/{aid}/voice-notes/{mid}")
+def clin_note_get(aid: str, mid: str, clin=Depends(current_clinician)):
+    with db.tx() as c:
+        if not _clinician_can_see(c, aid):
+            raise HTTPException(404, "Not found")
+        db_ = _note(c, aid, mid)
+    db.audit(clin, "voice_note_played", aid)
+    return db_
 
 
 @app.get("/api/assessments/{aid}/messages")
@@ -642,7 +744,7 @@ def user_send(aid: str, body: MessageIn, user=Depends(current_user)):
     if not row["review_consent"]:
         raise HTTPException(403, "Request a clinician review first")
     with db.tx() as c:
-        c.execute("INSERT INTO messages VALUES (?,?,?,?,?,NULL)", (str(uuid.uuid4()), aid, "user", security.seal(body.body), time.time()))
+        c.execute("INSERT INTO messages (id, assessment_id, sender, body, ts) VALUES (?,?,?,?,?)", (str(uuid.uuid4()), aid, "user", security.seal(body.body), time.time()))
     return {"ok": True}
 
 
@@ -660,7 +762,7 @@ def clin_send(aid: str, body: MessageIn, clin=Depends(current_clinician)):
     with db.tx() as c:
         if not _clinician_can_see(c, aid):
             raise HTTPException(404, "Not found")
-        c.execute("INSERT INTO messages VALUES (?,?,?,?,?,NULL)", (str(uuid.uuid4()), aid, "clinician", security.seal(body.body), time.time()))
+        c.execute("INSERT INTO messages (id, assessment_id, sender, body, ts) VALUES (?,?,?,?,?)", (str(uuid.uuid4()), aid, "clinician", security.seal(body.body), time.time()))
     db.audit(clin, "message_sent", aid)
     return {"ok": True}
 
@@ -676,7 +778,7 @@ def start_video(aid: str, clin=Depends(current_clinician)):
         if not _clinician_can_see(c, aid):
             raise HTTPException(404, "Not found")
         c.execute("UPDATE referrals SET video_url=? WHERE assessment_id=?", (url, aid))
-        c.execute("INSERT INTO messages VALUES (?,?,?,?,?,NULL)", (str(uuid.uuid4()), aid, "clinician",
+        c.execute("INSERT INTO messages (id, assessment_id, sender, body, ts) VALUES (?,?,?,?,?)", (str(uuid.uuid4()), aid, "clinician",
                   security.seal("استشارتك المرئية الخاصة جاهزة. افتح الرابط من صفحة نتيجتك متى كنت مستعداً. / "
                                 "A private video consultation is ready. Open the link on your result page when you are ready."), time.time()))
     db.audit(clin, "video_created", aid)
@@ -756,6 +858,129 @@ def partner_view(token: str):
     level = (ref and ref["final_level"]) or a["level"]
     status = _partner_status(level)
     return {"completed_on": time.strftime("%Y-%m-%d", time.gmtime(a["completed_at"])), "status": status, "message": PARTNER_TEXT[status]}
+
+
+# ------------------------------------------------------------------ conversational channels (WhatsApp + demo)
+from fastapi import Request  # noqa: E402
+from fastapi.responses import Response  # noqa: E402
+from xml.sax.saxutils import escape as xml_escape  # noqa: E402
+from . import conversation  # noqa: E402
+
+PUBLIC_URL = os.environ.get("RIAYA_PUBLIC_URL", "").rstrip("/")
+
+
+def _load_session(key):
+    with db.tx() as c:
+        r = c.execute("SELECT state FROM chat_sessions WHERE key_hash=?", (key,)).fetchone()
+    return security.unseal(r["state"]) if r else None
+
+
+def _save_session(key, st):
+    with db.tx() as c:
+        c.execute("DELETE FROM chat_sessions WHERE key_hash=?", (key,))
+        c.execute("INSERT INTO chat_sessions VALUES (?,?,?)", (key, security.seal(st), time.time()))
+
+
+def _drop_session(key):
+    with db.tx() as c:
+        c.execute("DELETE FROM chat_sessions WHERE key_hash=?", (key,))
+
+
+def _new_identity(st):
+    token, uid = security.new_token(), str(uuid.uuid4())
+    with db.tx() as c:
+        c.execute("INSERT INTO users VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), st["lang"] or "ar"))
+        c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (uid, "core", 1, CONSENT_VERSION, time.time()))
+        aid = str(uuid.uuid4())
+        c.execute("INSERT INTO assessments (id, user_id, started_at) VALUES (?,?,?)", (aid, uid, time.time()))
+    db.event(aid, "started", st.get("channel"))
+    st.update(uid=uid, token=token, aid=aid)
+
+
+def _summary_text(view, st, base):
+    lang = st["lang"]
+    lines = [f"*{view['next_step']}*", view["summary"]]
+    if view["plan"]:
+        lines.append("")
+        lines.append("Your top opportunities:" if lang == "en" else "أهم فرصك:")
+        lines += [f"{i + 1}. {p['action']}" for i, p in enumerate(view["plan"])]
+    if view.get("clinician_review") == "queued":
+        lines += ["", "A licensed doctor will review this before any referral is final." if lang == "en" else "سيراجع طبيب مرخّص ملخصك قبل اعتماد أي إحالة."]
+    lines += ["", view["disclaimer"]]
+    link = f"{base}/index.html#t={st['token']}&a={st['aid']}" if base else None
+    if link:
+        lines += ["", ("Full private summary, IFHAS hand-off and doctor messages: " if lang == "en" else "الملخص الكامل وتسليم «إفحص» ورسائل الطبيب: ") + link]
+    lines += ["", "Reply *delete* to erase everything." if lang == "en" else "أرسل *حذف* لمسح كل شيء."]
+    return "\n".join(lines)
+
+
+def converse(key, text, channel, base, has_media=False):
+    st = _load_session(key) or dict(conversation.new_state(), channel=channel)
+    replies, event = conversation.handle(st, text, has_media)
+    if event in ("delete", "restart"):
+        if st.get("uid"):
+            delete_me(user=st["uid"])
+        _drop_session(key)
+        if event == "delete":
+            return ["Everything has been erased. Send any message to start again." if st.get("lang") != "ar" else "تم مسح كل شيء. أرسل أي رسالة للبدء من جديد."]
+        st = dict(conversation.new_state(), channel=channel, lang=st.get("lang"))
+        replies, event = conversation.handle(st, "1" if st["lang"] == "ar" else "2" if st["lang"] == "en" else text)
+    if event == "start" and not st.get("uid"):
+        _new_identity(st)
+    if st.get("uid") and event in ("answers", "finish"):
+        with db.tx() as c:
+            c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (st["uid"], "clinician_review", int(st["review"]), CONSENT_VERSION, time.time()))
+            c.execute("UPDATE assessments SET answers=? WHERE id=?", (security.seal(st["answers"]), st["aid"]))
+    if event == "finish":
+        view = submit(st["aid"], st["lang"], user=st["uid"])
+        replies = [_summary_text(view, st, base)]
+    _save_session(key, st)
+    return replies
+
+
+def _twilio_valid(request, form):
+    tok = os.environ.get("TWILIO_AUTH_TOKEN")
+    if not tok:
+        return True  # sandbox / local demo
+    import base64
+    import hashlib
+    import hmac
+    url = (PUBLIC_URL + request.url.path) if PUBLIC_URL else str(request.url)
+    data = url + "".join(k + form[k] for k in sorted(form))
+    sig = base64.b64encode(hmac.new(tok.encode(), data.encode(), hashlib.sha1).digest()).decode()
+    return hmac.compare_digest(sig, request.headers.get("X-Twilio-Signature", ""))
+
+
+@app.post("/api/whatsapp/twilio")
+async def whatsapp(request: Request):
+    """Twilio WhatsApp webhook (sandbox or production sender). The phone number is never stored: only a salted hash keys the session."""
+    form = {k: str(v) for k, v in (await request.form()).items()}
+    if not _twilio_valid(request, form):
+        raise HTTPException(403, "Bad signature")
+    salt = os.environ.get("RIAYA_PHONE_SALT", "riaya")
+    key = "wa:" + security.token_hash(salt + form.get("From", ""))
+    base = PUBLIC_URL or str(request.base_url).rstrip("/")
+    replies = converse(key, form.get("Body", ""), "whatsapp", base, has_media=int(form.get("NumMedia", "0") or 0) > 0)
+    xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response>" + "".join(f"<Message>{xml_escape(r)}</Message>" for r in replies) + "</Response>"
+    return Response(xml, media_type="application/xml")
+
+
+@app.get("/api/config")
+def public_config():
+    """Non-secret settings the web app needs (e.g. the WhatsApp number to show as a QR code)."""
+    return {"whatsapp_number": os.environ.get("RIAYA_WHATSAPP_NUMBER", ""), "whatsapp_join": os.environ.get("RIAYA_WHATSAPP_JOIN", "")}
+
+
+class DemoIn(BaseModel):
+    session: str = Field(min_length=16, max_length=64)
+    text: str = Field("", max_length=500)
+
+
+@app.post("/api/conversation/demo")
+def conversation_demo(body: DemoIn, request: Request):
+    """Same engine as WhatsApp, for the in-app WhatsApp-style demo."""
+    base = PUBLIC_URL or str(request.base_url).rstrip("/")
+    return {"replies": converse("demo:" + security.token_hash(body.session), body.text, "demo", base)}
 
 
 # ------------------------------------------------------------------ static web app

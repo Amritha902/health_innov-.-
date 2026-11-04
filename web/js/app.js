@@ -1,45 +1,116 @@
 const S = { schema: null, answers: {}, aid: null, section: 0, consent: null, result: null };
 const view = () => $("#view");
+const setWide = on => $("#view").className = on ? "hero-wrap" : "wrap";
 
 async function boot() {
   applyLang();
+  const claim = new URLSearchParams(location.hash.slice(1));
+  if (claim.get("t") && claim.get("a")) {
+    store.set("token", claim.get("t")); store.set("aid", claim.get("a")); store.set("done", "1"); store.del("draft");
+    history.replaceState(null, "", "index.html");
+  }
   API.token = store.get("token");
   S.aid = store.get("aid");
   try { S.answers = JSON.parse(store.get("draft") || "{}"); } catch { S.answers = {}; }
   S.schema = await API.get("/api/questionnaire");
   renderTop();
+  if (location.hash === "#more" && API.token && S.aid) { history.replaceState(null, "", "index.html"); store.del("done"); return devices(); }
   if (API.token && S.aid && store.get("done") === "1") return showResult();
   welcome();
 }
 
 function renderTop() {
-  $("#top").innerHTML = `<div class="brand"><i></i>${t("app")}<span class="muted" style="font-weight:400">· ${t("tagline")}</span></div>
+  $("#top").innerHTML = `<div class="brand"><i></i>${t("app")}</div>
     <div class="spacer"></div>
-    <button class="chip" id="langBtn">${t("lang")}</button>
-    <button class="chip exit" onclick="quickExit()">${t("exit")}</button>`;
+    <a class="chip" href="graph.html">${LANG === "ar" ? "خريطة الأدلة" : "Evidence map"}</a>
+    <button class="chip" id="langBtn">${t("lang")}</button>`;
   $("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); applyLang(); renderTop(); rerender(); };
 }
 let rerender = welcome;
 
+const LATTICE = `<svg class="lattice" viewBox="0 0 240 252" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs><pattern id="mash" width="40" height="40" patternUnits="userSpaceOnUse">
+    <g fill="none" stroke="#c9932e" stroke-opacity=".55" stroke-width="1">
+      <path d="M20 4 L24 16 L36 20 L24 24 L20 36 L16 24 L4 20 L16 16 Z"/>
+      <rect x="11" y="11" width="18" height="18" transform="rotate(45 20 20)"/>
+      <path d="M0 0 L4 4 M40 0 L36 4 M0 40 L4 36 M40 40 L36 36 M20 0 V4 M20 36 V40 M0 20 H4 M36 20 H40"/>
+    </g></pattern></defs>
+  <rect width="240" height="252" fill="url(#mash)"/></svg>`;
+
 function welcome() {
   rerender = welcome;
+  setWide(true);
   const resumable = API.token && S.aid && Object.keys(S.answers).length;
-  view().innerHTML = `
-    <h1>${t("hero")}</h1><p class="lead">${t("heroSub")}</p>
-    <div class="card">
-      ${[1, 2, 3].map(i => `<div class="promise"><span class="dot"></span><div><b>${t("p" + i + "t")}</b><span class="muted">${t("p" + i)}</span></div></div>`).join("")}
+  document.body.classList.add("landing");
+  view().innerHTML = `<div class="hero">
+      <div>
+        <h1>${t("hero")}</h1><p class="lead">${t("heroSub")}</p>
+        <div class="paths">
+          <a class="path primary" href="chat.html"><span><b>${t("talkT")}</b><span class="d">${t("talkS")}</span></span><span class="len">${t("talkTime")}</span></a>
+          <button class="path" id="watch"><span><b>${t("watchT")}</b><span class="d">${t("watchS")}</span></span><span class="len">${t("watchTime")}</span></button>
+          <button class="path" id="go"><span><b>${resumable ? t("resume") : t("formT")}</b><span class="d">${t("formS")}</span></span><span class="len">${t("formTime")}</span></button>
+        </div>
+        ${resumable ? `<button class="chip" id="fresh">${t("restart")}</button>` : ""}
+        <p class="proof" id="proof"></p>
+      </div>
+      <div class="screen">${LATTICE}
+        <div class="window"><div class="voice">${"<span></span>".repeat(7)}</div><b>${t("windowT")}</b><p>${t("windowS")}</p></div>
+      </div>
     </div>
-    <div class="row">
-      <button class="btn" id="go">${resumable ? t("resume") : t("start")}</button>
-      ${resumable ? `<button class="btn ghost" id="fresh">${t("restart")}</button>` : ""}
+    <div class="steps">
+      ${[1, 2, 3].map(i => `<div><span class="n">${LANG === "ar" ? "٠١٢٣"[i] : i}</span><b>${t("how" + i + "t")}</b><span class="muted">${t("how" + i)}</span></div>`).join("")}
     </div>
-    <p class="muted" style="margin-top:28px">${t("alsoTry")}: <a href="fabric.html">${t("fabricLink")}</a> · <a href="graph.html">${t("graphLink")}</a></p>`;
-  $("#go").onclick = () => resumable ? intake() : consent();
-  if ($("#fresh")) $("#fresh").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; consent(); };
+    <p class="muted small" style="margin-top:48px">${t("alsoTry")}: <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a>, <a href="fabric.html">${t("fabricLink")}</a>, <a href="graph.html">${t("graphLink")}</a>, <a href="clinician.html">${LANG === "ar" ? "بوابة الأطباء" : "clinician console"}</a></p>`;
+  $("#go").onclick = () => { document.body.classList.remove("landing"); resumable ? intake() : consent(); };
+  $("#watch").onclick = () => { document.body.classList.remove("landing"); passiveStart(); };
+  if ($("#fresh")) $("#fresh").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; document.body.classList.remove("landing"); consent(); };
+  API.get("/api/graph").then(g => {
+    $("#proof").innerHTML = t("proof")({ edges: g.edges.length, nodes: g.nodes.length, refs: Object.keys(g.references).length });
+  }).catch(() => {});
+}
+
+async function ensureSession(wearables) {
+  if (!API.token) { API.token = (await API.post("/api/session", { lang: LANG })).token; store.set("token", API.token); }
+  S.consent = await API.post("/api/consent", { core: true, clinician_review: false, wearables, research: false });
+  S.aid = (await API.post("/api/assessments")).id; store.set("aid", S.aid); store.del("done"); store.set("passive_aid", S.aid);
+}
+
+function passiveStart() {
+  rerender = passiveStart;
+  setWide(false);
+  view().innerHTML = `<h1>${t("pwT")}</h1><p class="lead">${t("pwS")}</p>
+    <div class="card"><p>${t("pwHow")}</p><p class="muted small">${t("pwConsent")}</p>
+      <div class="row" style="margin-top:16px"><label class="btn" for="pf">${t("pwPick")}</label><input type="file" id="pf" accept=".zip,.xml,.csv" class="hidden">
+      <button class="btn ghost" id="sample">${t("pwSample")}</button></div><p class="muted small" id="ps"></p></div>
+    <div id="pres"></div>`;
+  const run = async file => {
+    $("#ps").textContent = t("pwReading");
+    try {
+      await ensureSession(true);
+      await API.upload(`/api/assessments/${S.aid}/wearables`, file);
+      const r = await API.post(`/api/assessments/${S.aid}/passive?lang=${LANG}`);
+      $("#ps").textContent = "";
+      const stats = Object.entries(r.summary).map(([k, v]) => `<div style="min-width:130px"><div style="font-family:var(--display);font-size:30px">${v}</div><div class="muted small">${t("pwStat")[k] || k}</div></div>`).join("");
+      $("#pres").innerHTML = `<div class="card"><div class="row" style="gap:28px;align-items:flex-start">${stats}</div></div>
+        <h2 style="margin-top:28px">${t("pwFound")}</h2>
+        ${r.findings.length ? r.findings.map(f => `<div class="plan-item"><b>${esc(f.text)}</b>
+          <div class="why">${f.evidence ? gradeTag(f.evidence) + " " : ""}${LANG === "ar" ? (LANG === "ar" ? "من بيانات جهازك" : "") : f.sources.map(esc).join("; ")}</div></div>`).join("") : `<p>${t("pwNone")}</p>`}
+        <div class="card next" style="margin-top:24px"><p>${t("pwNext")}</p>
+          <div class="row"><a class="btn" style="background:#eef0ec;color:#0f2a3a" href="chat.html">${t("pwTalk")}</a>
+          <button class="btn ghost" style="color:#eef0ec;box-shadow:inset 0 0 0 1px #3b5361" id="pform">${t("pwForm")}</button></div></div>`;
+      $("#pform").onclick = () => { S.section = 0; intake(); };
+    } catch (e) { $("#ps").textContent = `${t("uploadErr")}: ${e.message}`; }
+  };
+  $("#pf").onchange = e => e.target.files[0] && run(e.target.files[0]);
+  $("#sample").onclick = async () => {
+    const blob = await (await fetch("samples/apple_health_sample.zip")).blob();
+    run(new File([blob], "export.zip", { type: "application/zip" }));
+  };
 }
 
 function consent() {
   rerender = consent;
+  setWide(false);
   const item = (id, title, sub, checked, req) => `<label class="check"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} ${req ? "required" : ""}><div><b>${title}</b><div class="muted">${sub}</div></div></label>`;
   view().innerHTML = `<h1>${t("consentTitle")}</h1>
     <div class="grid2">
@@ -72,6 +143,7 @@ function visible(q) {
 
 function intake() {
   rerender = intake;
+  setWide(false);
   const secs = S.schema.sections, sec = secs[S.section];
   const qs = S.schema.questions.filter(q => q.section === sec.id);
   view().innerHTML = `<div class="muted">${t("sectionOf")(S.section + 1, secs.length)}</div>
@@ -118,6 +190,7 @@ function saveDraft() { store.set("draft", JSON.stringify(S.answers)); }
 
 async function devices() {
   rerender = devices;
+  setWide(false);
   if (!S.consent) S.consent = await API.get("/api/consent");
   const allowed = S.consent.wearables;
   view().innerHTML = `<h1>${t("devTitle")}</h1><p class="muted">${t("devSub")}</p>
@@ -153,6 +226,7 @@ async function devices() {
 
 function tests() {
   rerender = tests;
+  setWide(false);
   const field = (id, key) => `<div><label class="q">${t(key)}</label><input type="number" step="0.1" data-k="${id}"></div>`;
   view().innerHTML = `<h1>${t("testTitle")}</h1><p class="muted">${t("testSub")}</p>
     <div class="card">
@@ -219,6 +293,7 @@ async function showResult() {
 
 function renderResult() {
   rerender = showResult;
+  setWide(false);
   const r = S.result;
   const urgent = r.immediate;
   const pathText = w => w ? `${w.labels.join(" → ")} ${gradeTag(w.grade)}` : "";
@@ -235,7 +310,8 @@ function renderResult() {
       ${r.rapid_review ? `<h2>${t("rapidTitle")}</h2><p class="small">${t("rapidSub")(r.sla_hours)}</p>` : ""}
       ${r.review_consent === false || r.clinician_review === "available" ? `<p class="muted small">${t("reqReviewSub")}</p><button class="btn" id="reqRev">${t("reqReview")}</button>` : `
         ${r.referral && r.referral.video_url ? `<div class="banner info"><b>${t("videoReady")}</b><br><a class="btn" style="margin-top:8px" href="${esc(r.referral.video_url)}" target="_blank" rel="noopener noreferrer">${t("joinVideo")}</a></div>` : ""}
-        <h3>${t("msgTitle")}</h3><div id="msgs" class="small"></div>
+        <h3>${t("msgTitle")}</h3><p class="muted small">${t("noteHint")}</p><div id="msgs" class="small"></div>
+        <p><button class="btn ghost" id="noteBtn">${t("noteRec")}</button></p>
         <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="msg" placeholder="${t("msgPh")}"><button class="btn" id="sendMsg">${t("send")}</button></div>`}
     </div>` : r.clinician_review === "available" ? `<div class="card"><p class="muted small">${t("reqReviewSub")}</p><button class="btn" id="reqRev">${t("reqReview")}</button></div>` : ""}
     ${r.genomic ? `<div class="card"><p class="small">${t("genomicNote")}</p></div>` : ""}
@@ -264,9 +340,12 @@ function renderResult() {
   const loadMsgs = async () => {
     if (!$("#msgs")) return;
     const ms = await API.get(`/api/assessments/${S.aid}/messages`);
-    $("#msgs").innerHTML = ms.map(m => `<p><b>${m.sender === "user" ? t("you") : t("doctor")}:</b> ${esc(m.body)}</p>`).join("") || `<p class="muted">—</p>`;
+    $("#msgs").innerHTML = ms.map(m => Notes.render(m, `/api/assessments/${S.aid}/voice-notes`, m.sender === "user" ? t("you") : t("doctor"))).join("") || `<p class="muted">—</p>`;
+    Notes.wire($("#msgs"));
   };
   loadMsgs();
+  if ($("#noteBtn")) Notes.attach($("#noteBtn"), `/api/assessments/${S.aid}/voice-notes`, loadMsgs,
+    { record: t("noteRec"), stop: t("noteStop"), denied: t("noteDenied"), unsupported: t("noteNo") });
   if ($("#sendMsg")) $("#sendMsg").onclick = async () => {
     const v = $("#msg").value.trim(); if (!v) return;
     await API.post(`/api/assessments/${S.aid}/messages`, { body: v }); $("#msg").value = ""; loadMsgs();

@@ -213,3 +213,66 @@ def test_request_review_after_declining(client):
     client.post(f"/api/assessments/{aid}/request-review", headers=h)
     ch = clinician(client)
     assert aid in [x["id"] for x in client.get("/api/clinician/queue", headers=ch).json()["pending"]]
+
+
+def test_voice_notes(client):
+    h, aid = user(client)
+    client.put(f"/api/assessments/{aid}/answers", json={"answers": {**BASE, "aas": "current"}}, headers=h)
+    client.post(f"/api/assessments/{aid}/submit", headers=h)
+    audio = b"\x1aE\xdf\xa3fake-webm-bytes" * 50
+    r = client.post(f"/api/assessments/{aid}/voice-notes", headers=h, files={"file": ("n.webm", audio, "audio/webm")}, data={"seconds": "4.2"})
+    assert r.status_code == 200
+    assert client.post(f"/api/assessments/{aid}/voice-notes", headers=h, files={"file": ("x.exe", b"MZ", "application/octet-stream")}).status_code == 415
+    ch = clinician(client)
+    msgs = client.get(f"/api/clinician/cases/{aid}/messages", headers=ch).json()
+    note = [m for m in msgs if m["voice"]][0]
+    assert note["sender"] == "user" and note["seconds"] == 4.2
+    got = client.get(f"/api/clinician/cases/{aid}/voice-notes/{note['id']}", headers=ch)
+    assert got.content == audio and got.headers["content-type"].startswith("audio/webm")
+    from app import db
+    with db.tx() as c:
+        blob = c.execute("SELECT audio FROM messages WHERE id=?", (note["id"],)).fetchone()["audio"]
+    assert b"fake-webm" not in blob
+    client.post(f"/api/clinician/cases/{aid}/voice-notes", headers=ch, files={"file": ("r.ogg", b"OggS" * 40, "audio/ogg")})
+    mine = client.get(f"/api/assessments/{aid}/messages", headers=h).json()
+    reply = [m for m in mine if m["voice"] and m["sender"] == "clinician"][0]
+    assert client.get(f"/api/assessments/{aid}/voice-notes/{reply['id']}", headers=h).content.startswith(b"OggS")
+
+
+def test_whatsapp_flow(client):
+    def say(text, frm="whatsapp:+971500000001"):
+        r = client.post("/api/whatsapp/twilio", data={"From": frm, "Body": text, "NumMedia": "0"})
+        assert r.status_code == 200 and r.text.startswith("<?xml")
+        import re
+        return re.findall(r"<Message>(.*?)</Message>", r.text, re.S)
+    assert "العربية" in say("مرحبا")[0]
+    out = say("1")
+    assert "رعاية" in out[0] and "طبيب" in out[1]
+    for msg in ["نعم", "٣٣", "175", "تخطي", "1 3", "14", "كل يوم", "ابدا", "4", "عشر ساعات", "خمس", "ايوه", "اي", "3", "2", "1"]:
+        out = say(msg)
+    final = say("لا شيء")[0]
+    assert "عيادة صحة الرجل" in final and "#t=" in final and "&amp;a=" in final
+    # phone number is not stored anywhere
+    from app import db
+    with db.tx() as c:
+        assert not any("971500000001" in str(dict(r)) for r in c.execute("SELECT * FROM chat_sessions").fetchall())
+    # the man can open the full summary on the web with the link
+    import html, re
+    link = html.unescape(re.search(r"#t=(\S+)", final).group(1))
+    tok, aid = link.split("&a=")
+    assert client.get(f"/api/assessments/{aid}/result?lang=ar", headers={"Authorization": f"Bearer {tok}"}).status_code == 200
+    gone = say("حذف")
+    assert "مسح" in gone[0]
+    assert client.get(f"/api/assessments/{aid}/result", headers={"Authorization": f"Bearer {tok}"}).status_code == 401
+
+
+def test_conversation_numbers_and_words():
+    from app import conversation as cv
+    st = cv.new_state()
+    cv.handle(st, "2")
+    step = cv.current(st)
+    assert step["id"] == "consent_review" and cv.interpret(step, "yes please") == "yes"
+    assert cv.number("اثنين وثلاثين") == 32 and cv.number("about 7 hours") == 7
+    smoke = [s for s in cv.STEPS if s["id"] == "smoking"][0]
+    assert cv.interpret(smoke, "every day") is None or cv.interpret(smoke, "daily") == "daily"
+    assert cv.interpret(smoke, "4") == "daily" and cv.interpret(smoke, "يومياً") == "daily"

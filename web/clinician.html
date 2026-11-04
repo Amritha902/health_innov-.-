@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Riaya Clinician Console</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f2a3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Riaya">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/app.css">
 <style>
 .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
@@ -20,7 +25,7 @@ svg text { fill: var(--ink); font: 12px var(--font); }
 .stat { font-size: 26px; font-weight: 700; }
 </style>
 </head>
-<body>
+<body data-no-hide="1">
 <header class="top"><div class="brand"><i></i>Riaya · Clinician console</div><div class="spacer"></div>
   <span class="muted" id="who"></span><button class="chip hidden" id="logout">Sign out</button></header>
 <main class="wrap wide" id="view"></main>
